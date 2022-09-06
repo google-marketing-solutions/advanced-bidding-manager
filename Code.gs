@@ -166,7 +166,9 @@ function getAllStrategies() {
           metrics.conversions_value,
           metrics.cost_micros
         FROM bidding_strategy
-        WHERE bidding_strategy.target_roas.target_roas IS NOT NULL
+        WHERE
+          bidding_strategy.status = 'ENABLED'
+          AND bidding_strategy.target_roas.target_roas IS NOT NULL
           AND segments.date DURING ` + DATE_RANGE
   };
 
