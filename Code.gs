@@ -22,7 +22,7 @@ const CUSTOMER_IDS = [""]; // Enter your Ads customer ID(s)
 const DATE_RANGE = "LAST_30_DAYS";
 
 const EDIT_SHEET = "Edit";
-const API_ENDPOINT = "https://googleads.googleapis.com/v11/customers/";
+const API_ENDPOINT = "https://googleads.googleapis.com/v12/customers/";
 
 const LabelsIndex = {
   id: 0,
@@ -60,7 +60,7 @@ function initializeSheets() {
   labels[LabelsIndex.newTargetRoas] = "New target ROAS";
   
   let sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(EDIT_SHEET);
-  sheet.getRange(1, 1, 1, labels.length).setValues([labels]);
+  sheet.getRange(1, 1, 1, labels.length).setValues([labels]).setFontWeight("bold");
 }
 
 /**
@@ -78,10 +78,13 @@ function callApi(url, data) {
   let options = {
     'method' : 'post',
     'contentType': 'application/json',
-    'payload' : JSON.stringify(data),
     'headers': headers,
     'muteHttpExceptions': true
   };
+
+  if(data) {
+    options['payload'] = JSON.stringify(data);
+  }
 
   let response = UrlFetchApp.fetch(url, options);
   return JSON.parse(response.getContentText());
@@ -95,7 +98,9 @@ function callApiAll(endpoint, data) {
   for(cid of CUSTOMER_IDS) {
     let url = API_ENDPOINT + cid + endpoint;
     let response = callApi(url, data);
-    aggregate.push(...response.results);
+    if(response.results) {
+      aggregate.push(...response.results);
+    }
   }
   return aggregate;
 }
@@ -103,8 +108,9 @@ function callApiAll(endpoint, data) {
 /**
  * Creates a bidding strategy mutate operation for targetRoas
  */
-function createRoasOperation(row) {
+function createBiddingStrategyOperation(row) {
   return {
+    "biddingStrategyOperation": {
 		  "updateMask": "targetRoas.targetRoas",
 		  "update": {
 			  "resourceName": row[LabelsIndex.id],
@@ -112,7 +118,25 @@ function createRoasOperation(row) {
           "targetRoas": row[LabelsIndex.newTargetRoas]
         }
       }
-    };
+    }
+  };
+}
+
+/**
+ * Creates a campaign mutate operation for targetRoas
+ */
+function createCampaignOperation(row) {
+  return {
+    "campaignOperation": {
+		  "updateMask": "maximizeConversionValue.targetRoas",
+		  "update": {
+			  "resourceName": row[LabelsIndex.id],
+        "maximizeConversionValue": {
+          "targetRoas": row[LabelsIndex.newTargetRoas]
+        }
+      }
+    }
+  };
 }
 
 /**
@@ -135,16 +159,22 @@ function updateStrategies() {
   });
 
   for(cid of CUSTOMER_IDS) {
-    let url = API_ENDPOINT + cid + "/biddingStrategies:mutate";
-    
+    let url = API_ENDPOINT + cid + "/googleAds:mutate";
+
     // Populate update operations by first filtering on the CID
+    let biddingStrategyOperations = toUpdate.filter((r) => {
+          return r[LabelsIndex.id].indexOf(cid + "/biddingStrategies") > -1;
+        }).map(r => createBiddingStrategyOperation(r));
+
+    let campaignOperations = toUpdate.filter((r) => {
+          return r[LabelsIndex.id].indexOf(cid + "/campaigns") > -1;
+        }).map(r => createCampaignOperation(r));
+    
     let data = {
-      "operations": toUpdate.filter((r) => {
-          return r[LabelsIndex.id].indexOf(cid) > -1;
-        }).map(r => createRoasOperation(r))
+      "mutateOperations": biddingStrategyOperations.concat(campaignOperations)
     };
 
-    if(data.operations.length > 0) {
+    if(data.mutateOperations.length > 0) {
       callApi(url, data);
     }
   }
@@ -153,13 +183,22 @@ function updateStrategies() {
 }
 
 /**
- * Retrieve ROAS bidding strategies
+ * Retrieve all ROAS bidding strategies
  */
 function getAllStrategies() {
+  let portfolioStrategies = getPortfolioStrategies();
+  let campaignStrategies = getCampaignStrategies();
+
+  return portfolioStrategies.concat(campaignStrategies);
+}
+
+/**
+ * Retrieve ROAS portfolio bidding strategies
+ */
+function getPortfolioStrategies() {
   let data = {
     "query": `
         SELECT
-          bidding_strategy.id,
           bidding_strategy.name,
           bidding_strategy.target_roas.target_roas,
           metrics.conversions,
@@ -172,15 +211,51 @@ function getAllStrategies() {
           AND segments.date DURING ` + DATE_RANGE
   };
 
-  let strategies = callApiAll("/googleAds:search", data);
+  let portfolioStrategies = callApiAll("/googleAds:search", data);
   let apiRows = [];
 
-  for(s of strategies) {
+  for(s of portfolioStrategies) {
     let row = [];
     row[LabelsIndex.id] = s.biddingStrategy.resourceName;
     row[LabelsIndex.name] = s.biddingStrategy.name;
     row[LabelsIndex.targetRoas] = s.biddingStrategy.targetRoas 
         && s.biddingStrategy.targetRoas.targetRoas;
+    row[LabelsIndex.conversions] = s.metrics.conversions;
+    row[LabelsIndex.conversionsValue] = s.metrics.conversionsValue;
+    row[LabelsIndex.cost] = s.metrics.costMicros;
+    apiRows.push(row);
+  }
+
+  return apiRows;
+}
+
+/**
+ * Retrieve ROAS campaign strategies
+ */
+function getCampaignStrategies() {
+  let data = {
+    "query": `
+        SELECT
+          campaign.name,
+          campaign.maximize_conversion_value.target_roas,
+          metrics.conversions,
+          metrics.conversions_value,
+          metrics.cost_micros
+        FROM campaign
+        WHERE
+          campaign.maximize_conversion_value.target_roas IS NOT NULL
+          AND segments.date DURING ` + DATE_RANGE
+  };
+
+  let campaignStrategies = callApiAll("/googleAds:search", data);
+  let apiRows = [];
+
+  for(s of campaignStrategies) {
+    let row = [];
+    row[LabelsIndex.id] = s.campaign.resourceName;
+    row[LabelsIndex.name] = s.campaign.name;
+    row[LabelsIndex.targetRoas] = s.campaign.maximizeConversionValue
+        && s.campaign.maximizeConversionValue.targetRoas;
     row[LabelsIndex.conversions] = s.metrics.conversions;
     row[LabelsIndex.conversionsValue] = s.metrics.conversionsValue;
     row[LabelsIndex.cost] = s.metrics.costMicros;
