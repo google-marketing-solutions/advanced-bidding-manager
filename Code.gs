@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-const DEV_TOKEN = ""; // Enter your Developer token
-const LOGIN_CUSTOMER_ID = ""; // Enter your MCC ID
-const CUSTOMER_IDS = [""]; // Enter your Ads customer ID(s)
+const DEV_TOKEN = "YOUR-DEV-TOKEN";
+const LOGIN_CUSTOMER_ID = "YOUR-MCC-CUSTOMER-ID";
+const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 
 // https://developers.google.com/google-ads/api/docs/query/date-ranges#predefined_date_range
 const DATE_RANGE = "LAST_30_DAYS";
 
-const EDIT_SHEET = "Edit";
+const TARGETS_SHEET = "Targets";
+const SIM_SHEET = "Simulations";
 const API_ENDPOINT = "https://googleads.googleapis.com/v12/customers/";
 
 const LabelsIndex = {
@@ -34,33 +35,93 @@ const LabelsIndex = {
   newTargetRoas: 6
 };
 
+const SimLabelsIndex = {
+  customerName: 0,
+  bidStrategyName: 1,
+  bidStrategyCurrentTRoas: 2,
+  bidStrategyId: 3,
+  startDate: 4,
+  endDate: 5,
+  tRoasSimulationTargetRoas: 6,
+  tRoasSimulationBiddableConversions: 7,
+  tRoasSimulationBiddableConversionsValue: 8,
+  tRoasSimulationClicks:9,
+  tRoasSimulationCostMicros: 10,
+  tRoasSimulationImpressions: 11,
+  tRoasSimulationTopSlotImpressions: 12
+};
+
 /**
  * Executed when opening the spreadsheet
  */
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('Ads Bidding Strategies')
+  SpreadsheetApp.getUi().createMenu('Ads Bidding')
     .addItem('Initialize spreadsheet', 'initializeSheets')
     .addSeparator()
     .addItem('Load strategies', 'loadStrategies')
     .addItem('Update strategies', 'updateStrategies')
+    .addSeparator()
+    .addItem('Load Simulations', 'loadSimulations')
     .addToUi();
+}
+
+/**
+ * Returns the headers for Targets sheet
+ */
+function getTargetsHeaders() {
+  let headers = [];
+  headers[LabelsIndex.id] = "ID";
+  headers[LabelsIndex.name] = "Name";
+  headers[LabelsIndex.targetRoas] = "Target ROAS";
+  headers[LabelsIndex.conversions] = "Conversions";
+  headers[LabelsIndex.conversionsValue] = "Conv. value";
+  headers[LabelsIndex.cost] = "Cost (micros)";
+  headers[LabelsIndex.newTargetRoas] = "New target ROAS";
+
+  return headers;
+}
+
+/**
+ * Returns the headers for Simulations sheet
+ */
+function getSimulationsHeaders() {
+  let headers = [];
+  headers[SimLabelsIndex.customerName] = "Customer Name";
+  headers[SimLabelsIndex.bidStrategyName] = "Bidding Strategy Name";
+  headers[SimLabelsIndex.bidStrategyCurrentTRoas] = "Bidding Strategy Current Target Roas"
+  headers[SimLabelsIndex.bidStrategyId] = "Bidding Strategy Id";
+  headers[SimLabelsIndex.startDate] = "Start Date";
+  headers[SimLabelsIndex.endDate] = "End Date";
+  headers[SimLabelsIndex.tRoasSimulationTargetRoas] = "TARGET ROAS";
+  headers[SimLabelsIndex.tRoasSimulationBiddableConversions] = "Biddable Conversions";
+  headers[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = "Biddable Conversions Value";
+  headers[SimLabelsIndex.tRoasSimulationClicks] = "Clicks";
+  headers[SimLabelsIndex.tRoasSimulationCostMicros] = "Cost Micros";
+  headers[SimLabelsIndex.tRoasSimulationImpressions] = "Impressions";
+  headers[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = "Top Slot Impressions";
+
+  return headers;
+}
+
+/**
+ * Inserts a sheet and initializes the headers
+ */
+function insertSheet(sheetName, headers) {
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if(!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+  }
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setFontWeight("bold");
 }
 
 /**
  * Function to intialize the spreadsheet
  */
 function initializeSheets() {
-  let labels = [];
-  labels[LabelsIndex.id] = "ID";
-  labels[LabelsIndex.name] = "Name";
-  labels[LabelsIndex.targetRoas] = "Target ROAS";
-  labels[LabelsIndex.conversions] = "Conversions";
-  labels[LabelsIndex.conversionsValue] = "Conv. value";
-  labels[LabelsIndex.cost] = "Cost (micros)";
-  labels[LabelsIndex.newTargetRoas] = "New target ROAS";
-  
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(EDIT_SHEET);
-  sheet.getRange(1, 1, 1, labels.length).setValues([labels]).setFontWeight("bold");
+  insertSheet(TARGETS_SHEET, getTargetsHeaders());
+  insertSheet(SIM_SHEET, getSimulationsHeaders());
 }
 
 /**
@@ -140,13 +201,22 @@ function createCampaignOperation(row) {
 }
 
 /**
+ * Gets a spreadsheet by name
+ * @throws exception if sheet is not found
+ */
+function getSpreadsheet(sheetName) {
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if(!sheet) {
+    throw `Sheet ${sheetName} cannot be found. Please initialize first.`
+  }
+  return sheet;
+}
+
+/**
  * Updates bidding strategy targets via Google Ads API
  */
 function updateStrategies() {
-  let editData = SpreadsheetApp.getActiveSpreadsheet()
-    .getSheetByName(EDIT_SHEET)
-    .getDataRange()
-    .getValues();
+  let editData = getSpreadsheet(TARGETS_SHEET).getDataRange().getValues();
 
   // Update only the rows that contain a changed ROAS target
   let toUpdate = editData.filter((r) => {
@@ -155,7 +225,7 @@ function updateStrategies() {
               return true;
           }
       }
-      return false;   
+      return false;
   });
 
   for(cid of CUSTOMER_IDS) {
@@ -169,7 +239,7 @@ function updateStrategies() {
     let campaignOperations = toUpdate.filter((r) => {
           return r[LabelsIndex.id].indexOf(cid + "/campaigns") > -1;
         }).map(r => createCampaignOperation(r));
-    
+
     let data = {
       "mutateOperations": biddingStrategyOperations.concat(campaignOperations)
     };
@@ -218,7 +288,7 @@ function getPortfolioStrategies() {
     let row = [];
     row[LabelsIndex.id] = s.biddingStrategy.resourceName;
     row[LabelsIndex.name] = s.biddingStrategy.name;
-    row[LabelsIndex.targetRoas] = s.biddingStrategy.targetRoas 
+    row[LabelsIndex.targetRoas] = s.biddingStrategy.targetRoas
         && s.biddingStrategy.targetRoas.targetRoas;
     row[LabelsIndex.conversions] = s.metrics.conversions;
     row[LabelsIndex.conversionsValue] = s.metrics.conversionsValue;
@@ -270,36 +340,119 @@ function getCampaignStrategies() {
  */
 function loadStrategies() {
   let apiRows = getAllStrategies();
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(EDIT_SHEET);
+  updateRows(TARGETS_SHEET, apiRows, LabelsIndex.id);
+}
 
-  // Get all the bidding strategies ids from the id column
-  let ids = sheet.getRange(
-      2, 
-      LabelsIndex.id + 1, 
-      Math.max(sheet.getLastRow() - 1, 2),
-      LabelsIndex.id + 1
-    ).getValues()
+/**
+ * Retrieve ROAS bidding strategies simulations
+ */
+function getAllSimulations() {
+  let data = {
+    "query": `
+        SELECT
+          bidding_strategy_simulation.bidding_strategy_id,
+          bidding_strategy_simulation.start_date,
+          bidding_strategy_simulation.end_date,
+          bidding_strategy_simulation.target_roas_point_list.points,
+          bidding_strategy.name,
+          bidding_strategy.target_roas.target_roas,
+          customer.descriptive_name
+        FROM bidding_strategy_simulation`
+  };
+  let simulations = callApiAll("/googleAds:search", data);
+  let apiRows = [];
+
+  for(s of simulations) {
+    let points = s.biddingStrategySimulation.targetRoasPointList.points;
+    for (p of points){
+      let row = [];
+      row[SimLabelsIndex.bidStrategyId] = s.biddingStrategySimulation.biddingStrategyId;
+      row[SimLabelsIndex.bidStrategyName] = s.biddingStrategy.name;
+      row[SimLabelsIndex.startDate] = s.biddingStrategySimulation.startDate;
+      row[SimLabelsIndex.endDate] = s.biddingStrategySimulation.endDate;
+      row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
+      row[SimLabelsIndex.bidStrategyCurrentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
+      row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
+      row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
+      row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
+      row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
+      row[SimLabelsIndex.tRoasSimulationCostMicros] = p.costMicros;
+      row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
+      row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
+      apiRows.push(row);
+    }
+  }
+  return apiRows;
+}
+
+/**
+ * Loads bidding strategies simulations from API to spreadsheet
+ */
+function loadSimulations() {
+  clearSheet(SIM_SHEET);
+  let apiRows = getAllSimulations();
+  appendRows(SIM_SHEET, apiRows)
+}
+
+/**
+ * Update rows in a spreadsheet using a column index as id.
+ * Rows with matching ids will be updated.
+ * Rows with new ids will be appended.
+ */
+function updateRows(sheetName, apiRows, idColumn) {
+  let sheet = getSpreadsheet(sheetName);
+  let extraRows = [];
+
+  // Get all the ids from the id column
+  let range = sheet.getRange(
+    2,
+    idColumn + 1,
+    Math.max(sheet.getLastRow() - 1, 2),
+    idColumn + 1
+    ).getValues();
 
   // Convert to one dimensional array
-  ids = ids.map(r => r[0]);
-  
-  let appendRows = [];
+  ids = range.map(r => r[0]);
+
   for(apiRow of apiRows) {
-    let index = ids.indexOf(apiRow[LabelsIndex.id]);
+    let index = ids.indexOf(apiRow[idColumn]);
     if(index > -1) {
+      // Spreadsheet row index is offset by 1 + 1 for the header row
       let rowIndex = index + 2;
       sheet.getRange(rowIndex, 1, 1, apiRow.length).setValues([apiRow]);
     } else {
-      appendRows.push(apiRow);
+      extraRows.push(apiRow);
     }
   }
 
-  if(appendRows.length > 0) {
+  appendRows(sheetName, extraRows);
+}
+
+/**
+ * Appends the given rows after the last existing row of the sheet
+ */
+function appendRows(sheetName, rows) {
+  let sheet = getSpreadsheet(sheetName);
+
+  if(rows.length > 0) {
     sheet.getRange(
-        sheet.getLastRow() + 1, 
-        1, 
-        appendRows.length, 
-        appendRows[0].length
-    ).setValues(appendRows);
+        sheet.getLastRow() + 1,
+        1,
+        rows.length,
+        rows[0].length
+    ).setValues(rows);
+  }
+}
+
+/**
+ * Clears the sheet except first row
+ */
+function clearSheet(sheetName) {
+  let sheet = getSpreadsheet(sheetName);
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+
+  if(lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContents();
   }
 }
