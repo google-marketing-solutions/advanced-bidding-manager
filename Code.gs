@@ -16,13 +16,14 @@
 
 const DEV_TOKEN = "YOUR-DEV-TOKEN";
 const LOGIN_CUSTOMER_ID = "YOUR-MCC-CUSTOMER-ID";
-const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 
 // https://developers.google.com/google-ads/api/docs/query/date-ranges#predefined_date_range
 const DATE_RANGE = "LAST_30_DAYS";
 
 const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
+const CID_SHEET = "Customers";
+
 const API_ENDPOINT = "https://googleads.googleapis.com/v12/customers/";
 
 const LabelsIndex = {
@@ -51,6 +52,14 @@ const SimLabelsIndex = {
   tRoasSimulationTopSlotImpressions: 12
 };
 
+const CustomerLabelsIndex = {
+  customerName: 0,
+  customerLevel: 1,
+  isManager: 2,
+  customerId: 3,
+  parentMccId: 4
+};
+
 /**
  * Executed when opening the spreadsheet
  */
@@ -62,6 +71,7 @@ function onOpen() {
     .addItem('Update strategies', 'updateStrategies')
     .addSeparator()
     .addItem('Load Simulations', 'loadSimulations')
+    .addItem('Load Customer Ids', 'loadCids')
     .addToUi();
 }
 
@@ -104,6 +114,20 @@ function getSimulationsHeaders() {
 }
 
 /**
+ * Returns the headers for Customer Ids sheet
+ */
+function getCustomerHeaders(){
+  let headers = [];
+  headers[CustomerLabelsIndex.customerName] = "Customer Descriptive Name";
+  headers[CustomerLabelsIndex.customerLevel] = "Level";
+  headers[CustomerLabelsIndex.isManager] = "Manager"
+  headers[CustomerLabelsIndex.customerId] = "Customer Id";
+  headers[CustomerLabelsIndex.parentMccId] = "Parent MCC ID";
+
+  return headers;
+}
+
+/**
  * Inserts a sheet and initializes the headers
  */
 function insertSheet(sheetName, headers) {
@@ -122,6 +146,19 @@ function insertSheet(sheetName, headers) {
 function initializeSheets() {
   insertSheet(TARGETS_SHEET, getTargetsHeaders());
   insertSheet(SIM_SHEET, getSimulationsHeaders());
+  insertSheet(CID_SHEET, getCustomerHeaders());
+}
+
+/**
+ * Gets a spreadsheet by name
+ * @throws exception if sheet is not found
+ */
+function getSpreadsheet(sheetName) {
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if(!sheet) {
+    throw `Sheet ${sheetName} cannot be found. Please initialize first.`
+  }
+  return sheet;
 }
 
 /**
@@ -152,16 +189,29 @@ function callApi(url, data) {
 }
 
 /**
+ * Calls a Google Ads API endpoint for one configured CID/MCC
+ */
+function callApiId(endpoint, data, id) {
+  let url = API_ENDPOINT + id + endpoint;
+  let response = callApi(url, data);
+  if(response.results){
+    return response.results;
+  }
+  if(response.error){
+    console.log(response.error);
+  }
+  return [];
+}
+
+/**
  * Calls a Google Ads API endpoint for all configured CIDs
  */
 function callApiAll(endpoint, data) {
   let aggregate = [];
-  for(cid of CUSTOMER_IDS) {
-    let url = API_ENDPOINT + cid + endpoint;
-    let response = callApi(url, data);
-    if(response.results) {
-      aggregate.push(...response.results);
-    }
+  let ids = fetchValuesFromColumn(CID_SHEET, CustomerLabelsIndex.customerId);
+  for(cid of ids) {
+    let results =  callApiId(endpoint, data, cid);
+    aggregate.push(...results);
   }
   return aggregate;
 }
@@ -198,18 +248,6 @@ function createCampaignOperation(row) {
       }
     }
   };
-}
-
-/**
- * Gets a spreadsheet by name
- * @throws exception if sheet is not found
- */
-function getSpreadsheet(sheetName) {
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  if(!sheet) {
-    throw `Sheet ${sheetName} cannot be found. Please initialize first.`
-  }
-  return sheet;
 }
 
 /**
@@ -344,7 +382,7 @@ function loadStrategies() {
 }
 
 /**
- * Retrieve ROAS bidding strategies simulations
+ * Retrieve tROAS bidding strategies simulations
  */
 function getAllSimulations() {
   let data = {
@@ -357,31 +395,39 @@ function getAllSimulations() {
           bidding_strategy.name,
           bidding_strategy.target_roas.target_roas,
           customer.descriptive_name
-        FROM bidding_strategy_simulation`
+        FROM bidding_strategy_simulation
+        WHERE
+          bidding_strategy_simulation.type = 'TARGET_ROAS'
+          AND bidding_strategy.type = 'TARGET_ROAS'`
   };
   let simulations = callApiAll("/googleAds:search", data);
   let apiRows = [];
-
-  for(s of simulations) {
-    let points = s.biddingStrategySimulation.targetRoasPointList.points;
-    for (p of points){
-      let row = [];
-      row[SimLabelsIndex.bidStrategyId] = s.biddingStrategySimulation.biddingStrategyId;
-      row[SimLabelsIndex.bidStrategyName] = s.biddingStrategy.name;
-      row[SimLabelsIndex.startDate] = s.biddingStrategySimulation.startDate;
-      row[SimLabelsIndex.endDate] = s.biddingStrategySimulation.endDate;
-      row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
-      row[SimLabelsIndex.bidStrategyCurrentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
-      row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
-      row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
-      row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
-      row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
-      row[SimLabelsIndex.tRoasSimulationCostMicros] = p.costMicros;
-      row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
-      row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
-      apiRows.push(row);
+  try {
+    for(s of simulations) {
+      let points = s.biddingStrategySimulation.targetRoasPointList.points;
+      for (p of points){
+        let row = [];
+        row[SimLabelsIndex.bidStrategyId] = s.biddingStrategySimulation.biddingStrategyId;
+        row[SimLabelsIndex.bidStrategyName] = s.biddingStrategy.name;
+        row[SimLabelsIndex.startDate] = s.biddingStrategySimulation.startDate;
+        row[SimLabelsIndex.endDate] = s.biddingStrategySimulation.endDate;
+        row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
+        row[SimLabelsIndex.bidStrategyCurrentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
+        row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
+        row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
+        row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
+        row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
+        row[SimLabelsIndex.tRoasSimulationCostMicros] = p.costMicros;
+        row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
+        row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
+        apiRows.push(row);
+      }
     }
   }
+  catch (error) {
+    console.log(error);
+  }
+  
   return apiRows;
 }
 
@@ -391,7 +437,68 @@ function getAllSimulations() {
 function loadSimulations() {
   clearSheet(SIM_SHEET);
   let apiRows = getAllSimulations();
-  appendRows(SIM_SHEET, apiRows)
+  appendRows(SIM_SHEET, apiRows);
+}
+
+/**
+ * Loads all cids under LOGIN_CUSTOMER_ID from API to spreadsheet
+ */
+function loadCids(){
+  clearSheet(CID_SHEET);
+  if(LOGIN_CUSTOMER_ID) {
+    let customerIdsRows = getAllMccChildren(LOGIN_CUSTOMER_ID);
+    appendRows(CID_SHEET, customerIdsRows);
+  }
+  else {
+    console.log("Please update LOGIN_CUSTOMER_ID to fetch customer ids");
+  }
+}
+
+/**
+ * Recursive function that retrieves all IDs under an MCC
+ */
+function getAllMccChildren(mcc){
+  let customerIdsRows = [];
+  let data = {
+    "query": `
+        SELECT
+          customer_client.client_customer,
+          customer_client.level,
+          customer_client.manager,
+          customer_client.descriptive_name,
+          customer_client.id
+        FROM customer_client`
+  };
+
+  let customers = callApiId("/googleAds:search", data, mcc);
+  for(c of customers) {
+    let row = [];
+    row[CustomerLabelsIndex.customerLevel] = c.customerClient.level;
+    row[CustomerLabelsIndex.isManager] = c.customerClient.manager;
+    row[CustomerLabelsIndex.customerName] = c.customerClient.descriptiveName;
+    row[CustomerLabelsIndex.customerId] = c.customerClient.id;
+    row[CustomerLabelsIndex.parentMccId] = mcc;
+    customerIdsRows.push(row); // both mcc and cids
+  }
+  return customerIdsRows;
+}
+
+/**
+ * Function that returns a list of Customer Ids from a given sheet and column id
+ */
+function fetchValuesFromColumn(sheetName, columnId){
+  let values = [];
+  let sheet = getSpreadsheet(sheetName);
+  let range = sheet.getRange(
+    2,
+    columnId + 1,
+    Math.max(sheet.getLastRow() - 1, 2),
+    columnId + 1
+    ).getValues();
+
+  // Convert to one dimensional array
+  values = range.map(r => r[0]);
+  return values;
 }
 
 /**
@@ -402,17 +509,7 @@ function loadSimulations() {
 function updateRows(sheetName, apiRows, idColumn) {
   let sheet = getSpreadsheet(sheetName);
   let extraRows = [];
-
-  // Get all the ids from the id column
-  let range = sheet.getRange(
-    2,
-    idColumn + 1,
-    Math.max(sheet.getLastRow() - 1, 2),
-    idColumn + 1
-    ).getValues();
-
-  // Convert to one dimensional array
-  ids = range.map(r => r[0]);
+  ids = fetchValuesFromColumn(sheetName, idColumn);
 
   for(apiRow of apiRows) {
     let index = ids.indexOf(apiRow[idColumn]);
@@ -453,6 +550,6 @@ function clearSheet(sheetName) {
   var lastColumn = sheet.getLastColumn();
 
   if(lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContents();
+    sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
   }
 }
