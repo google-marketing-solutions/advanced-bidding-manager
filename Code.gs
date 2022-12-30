@@ -66,12 +66,12 @@ const CustomerLabelsIndex = {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Ads Bidding')
     .addItem('Initialize spreadsheet', 'initializeSheets')
+    .addItem('Load Customer Ids', 'loadCids')
     .addSeparator()
-    .addItem('Load strategies', 'loadStrategies')
-    .addItem('Update strategies', 'updateStrategies')
+    .addItem('Load targets', 'loadTargets')
+    .addItem('Update targets', 'updateTargets')
     .addSeparator()
     .addItem('Load Simulations', 'loadSimulations')
-    .addItem('Load Customer Ids', 'loadCids')
     .addToUi();
 }
 
@@ -208,8 +208,8 @@ function callApiId(endpoint, data, id) {
  */
 function callApiAll(endpoint, data) {
   let aggregate = [];
-  let ids = fetchValuesFromColumn(CID_SHEET, CustomerLabelsIndex.customerId);
-  for(cid of ids) {
+  let cids = fetchValuesFromColumn(CID_SHEET, CustomerLabelsIndex.customerId);
+  for(cid of cids) {
     let results =  callApiId(endpoint, data, cid);
     aggregate.push(...results);
   }
@@ -253,7 +253,7 @@ function createCampaignOperation(row) {
 /**
  * Updates bidding strategy targets via Google Ads API
  */
-function updateStrategies() {
+function updateTargets() {
   let editData = getSpreadsheet(TARGETS_SHEET).getDataRange().getValues();
 
   // Update only the rows that contain a changed ROAS target
@@ -266,7 +266,8 @@ function updateStrategies() {
       return false;
   });
 
-  for(cid of CUSTOMER_IDS) {
+  let cids = fetchValuesFromColumn(CID_SHEET, CustomerLabelsIndex.customerId);
+  for(cid of cids) {
     let url = API_ENDPOINT + cid + "/googleAds:mutate";
 
     // Populate update operations by first filtering on the CID
@@ -287,7 +288,7 @@ function updateStrategies() {
     }
   }
 
-  loadStrategies();
+  loadTargets();
 }
 
 /**
@@ -376,7 +377,7 @@ function getCampaignStrategies() {
 /**
  * Loads bidding strategies from API to spreadsheet
  */
-function loadStrategies() {
+function loadTargets() {
   let apiRows = getAllStrategies();
   updateRows(TARGETS_SHEET, apiRows, LabelsIndex.id);
 }
@@ -455,7 +456,7 @@ function loadCids(){
 }
 
 /**
- * Recursive function that retrieves all IDs under an MCC
+ * Retrieves all CIDs under an MCC
  */
 function getAllMccChildren(mcc){
   let customerIdsRows = [];

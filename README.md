@@ -77,15 +77,14 @@ cd ..
 
  2. Use the **Ads Bidding** menu > **Load Customer Ids** menu item.
     It will fetch all customer ids under a given LOGIN_CUSTOMER_ID and populate the "Customers" sheet.
-    This data can be used for both Load Strategies and Simulations instead of the hardcoded list of Customer Ids.
+    This Customer Ids will be used for both Load Targets and Simulations.
     If you want to load only specific CIDs, add them in the Customer ID column of the Customers sheet.
 
- 3. Use the **Load Strategies** option to fetch all your current portfolio bidding strategies (ROAS).
-    It will fetch all the bidding targets and populate the "Targets" sheet.
+ 3. Use the **Load Targets** option to fetch all your current ROAS bidding targets in the "Targets" sheet.
 
  4. Update the new ROAS target column on the spreadsheet. This is the only field that can be changed.
 
- 5. Use the **Update Strategies** option to push your new ROAS targets to Google Ads.
+ 5. Use the **Update Targets** option to push your new ROAS targets to Google Ads.
 
  6. Use the **Ads Bidding** menu > **Load Simulations** menu item.
     It will fetch all the bidding strategies simulations and populate the "Simulations" sheet.
