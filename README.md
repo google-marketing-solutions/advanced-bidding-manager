@@ -1,4 +1,4 @@
-# Bidding targets manager for Google Ads
+# Advanced Bidding Manager for Google Ads
 
 Please note: this is not an officially supported Google product.
 

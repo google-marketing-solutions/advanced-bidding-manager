@@ -47,7 +47,7 @@ const SimLabelsIndex = {
   tRoasSimulationBiddableConversions: 7,
   tRoasSimulationBiddableConversionsValue: 8,
   tRoasSimulationClicks:9,
-  tRoasSimulationCostMicros: 10,
+  tRoasSimulationCost: 10,
   tRoasSimulationImpressions: 11,
   tRoasSimulationTopSlotImpressions: 12
 };
@@ -85,7 +85,7 @@ function getTargetsHeaders() {
   headers[LabelsIndex.targetRoas] = "Target ROAS";
   headers[LabelsIndex.conversions] = "Conversions";
   headers[LabelsIndex.conversionsValue] = "Conv. value";
-  headers[LabelsIndex.cost] = "Cost (micros)";
+  headers[LabelsIndex.cost] = "Cost";
   headers[LabelsIndex.newTargetRoas] = "New target ROAS";
 
   return headers;
@@ -106,7 +106,7 @@ function getSimulationsHeaders() {
   headers[SimLabelsIndex.tRoasSimulationBiddableConversions] = "Biddable Conversions";
   headers[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = "Biddable Conversions Value";
   headers[SimLabelsIndex.tRoasSimulationClicks] = "Clicks";
-  headers[SimLabelsIndex.tRoasSimulationCostMicros] = "Cost Micros";
+  headers[SimLabelsIndex.tRoasSimulationCost] = "Cost";
   headers[SimLabelsIndex.tRoasSimulationImpressions] = "Impressions";
   headers[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = "Top Slot Impressions";
 
@@ -331,7 +331,7 @@ function getPortfolioStrategies() {
         && s.biddingStrategy.targetRoas.targetRoas;
     row[LabelsIndex.conversions] = s.metrics.conversions;
     row[LabelsIndex.conversionsValue] = s.metrics.conversionsValue;
-    row[LabelsIndex.cost] = s.metrics.costMicros;
+    row[LabelsIndex.cost] = s.metrics.costMicros / 1e6;
     apiRows.push(row);
   }
 
@@ -352,7 +352,8 @@ function getCampaignStrategies() {
           metrics.cost_micros
         FROM campaign
         WHERE
-          campaign.maximize_conversion_value.target_roas IS NOT NULL
+          campaign.status != 'REMOVED'
+          AND campaign.maximize_conversion_value.target_roas IS NOT NULL
           AND segments.date DURING ` + DATE_RANGE
   };
 
@@ -367,7 +368,7 @@ function getCampaignStrategies() {
         && s.campaign.maximizeConversionValue.targetRoas;
     row[LabelsIndex.conversions] = s.metrics.conversions;
     row[LabelsIndex.conversionsValue] = s.metrics.conversionsValue;
-    row[LabelsIndex.cost] = s.metrics.costMicros;
+    row[LabelsIndex.cost] = s.metrics.costMicros / 1e6;
     apiRows.push(row);
   }
 
@@ -418,7 +419,7 @@ function getAllSimulations() {
         row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
         row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
         row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
-        row[SimLabelsIndex.tRoasSimulationCostMicros] = p.costMicros;
+        row[SimLabelsIndex.tRoasSimulationCost] = p.costMicros / 1e6;
         row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
         row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
         apiRows.push(row);
