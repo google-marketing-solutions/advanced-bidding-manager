@@ -80,18 +80,26 @@ cd ..
     This Customer Ids will be used for both Load Targets and Simulations.
     If you want to load only specific CIDs, add them in the Customer ID column of the Customers sheet.
 
- 3. Use the **Load Targets** option to fetch all your current ROAS bidding targets in the "Targets" sheet.
+ 3. Use the **Load Targets** option to fetch all your current bidding targets in the "Targets" sheet.
 
- 4. Update the new ROAS target column on the spreadsheet. This is the only field that can be changed.
+ 4. Update the new ROAS/CPA target column on the spreadsheet. This is the only field that can be changed.
 
- 5. Use the **Update Targets** option to push your new ROAS targets to Google Ads.
+ 5. Use the **Update Targets** option to push your new bidding targets to Google Ads.
 
  6. Use the **Ads Bidding** menu > **Load Simulations** menu item.
     It will fetch all the bidding strategies simulations and populate the "Simulations" sheet.
 
-Note: you can change the sheet names by changing the lines:
+### Configurable elements
+
+You can change the sheet names by changing the lines:
 ```
 const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
 const CID_SHEET = "Customers";
+```
+
+You can change the metrics and date ranges to include when loading bidding targets:
+```
+const DATE_RANGES = ["LAST_30_DAYS"];
+const TARGETS_METRICS = ["conversions", "conversions_value", "cost_micros", "average_cpc"];
 ```
