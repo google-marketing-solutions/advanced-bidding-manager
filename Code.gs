@@ -496,11 +496,16 @@ function buildGaqlColumns(columns) {
 
 /**
  * Read metric from API
- * If cost micros, convert to main units
+ * For cost metrics, convert from micros to main units
+ * @param entry API response of campaign/bidding strategy, incl metrics
+ * @param metricName Name of the metric to be read
  */
 function readMetric(entry, metricName) {
+  if(!entry) {
+    return "";
+  }
   let metric = getMetricApiNotation(metricName);
-  if(metricName == "cost_micros") {
+  if(["cost_micros", "average_cpc"].indexOf(metricName) > -1) {
     return (entry['metrics'][metric] || 0) / 1e+6;
   }
   return entry['metrics'][metric];
@@ -630,7 +635,7 @@ function getAllMccChildren(mcc){
 
 /**
  * Function that returns a list of values from a given sheet and column id
- * @argument excludeEmpty filters out the empty values, true by default
+ * @param excludeEmpty filters out the empty values, true by default
  */
 function fetchValuesFromColumn(sheetName, columnId, excludeEmpty=true){
   let values = [];
