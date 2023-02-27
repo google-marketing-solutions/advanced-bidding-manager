@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,52 @@ const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
 const CID_SHEET = "Customers";
 
-const API_ENDPOINT = "https://googleads.googleapis.com/v12/customers/";
+const API_ENDPOINT = "https://googleads.googleapis.com/v13/customers/";
+
+// Calculated formulas on top of simulation data-points to enrich
+const SimulationFormulas = [
+  // Subtracting cost (K) from conversion value (I)
+  {
+    header: "Value-cost ($)",
+    formula: "I2-K2"
+  },
+  // VLookup of conversion value (I) on closest ROAS target (G) to current target (C)
+  {
+    header: "Value target ($)",
+    formula: `VLOOKUP(C2, 
+      SORT(FILTER(G:K, D:D = D2), 1, TRUE), 
+      COLUMN(I2)-COLUMN(G2)+1, 
+      TRUE)`
+  },
+  // Subtracting current conversion value (O) from simulated conversion value (I)
+  {
+    header: "Value diff ($)",
+    formula: "I2-O2"
+  },
+  // VLookup of cost (K) on closest ROAS target (G) to current target (C)
+  {
+    header: "Cost target ($)",
+    formula: `VLOOKUP(C2, 
+      SORT(FILTER(G:K, D:D = D2), 1, TRUE), 
+      COLUMN(K2)-COLUMN(G2)+1, 
+      TRUE)`
+  },
+  // Subtracting current cost (Q) from simulated cost (K)
+  {
+    header: "Cost diff ($)",
+    formula: "Q2-K2"
+  },
+  // Rank simulation data points based on the value-cost (N)
+  {
+    header: "Rank",
+    formula: "RANK(N2, FILTER(N:N, D:D = D2))"
+  },
+  // Relative change of simulated (G) to current ROAS target (C)
+  {
+    header: "ROAS change (%)",
+    formula: "G2/C2"
+  }
+];
 
 const TargetsLabelsIndex = {
   id: 0,
@@ -40,19 +85,20 @@ const TargetsLabelsIndex = {
 };
 
 const SimLabelsIndex = {
-  customerName: 0,
-  bidStrategyName: 1,
-  bidStrategyCurrentTRoas: 2,
-  bidStrategyId: 3,
-  startDate: 4,
-  endDate: 5,
-  tRoasSimulationTargetRoas: 6,
-  tRoasSimulationBiddableConversions: 7,
-  tRoasSimulationBiddableConversionsValue: 8,
-  tRoasSimulationClicks:9,
-  tRoasSimulationCost: 10,
-  tRoasSimulationImpressions: 11,
-  tRoasSimulationTopSlotImpressions: 12
+  customerName: 0,                              // Column A
+  bidStrategyName: 1,                           // Column B
+  bidStrategyCurrentTRoas: 2,                   // Column C
+  bidStrategyId: 3,                             // Column D
+  startDate: 4,                                 // Column E
+  endDate: 5,                                   // Column F
+  tRoasSimulationTargetRoas: 6,                 // Column G
+  tRoasSimulationBiddableConversions: 7,        // Column H
+  tRoasSimulationBiddableConversionsValue: 8,   // Column I
+  tRoasSimulationClicks:9,                      // Column J
+  tRoasSimulationCost: 10,                      // Column K
+  tRoasSimulationImpressions: 11,               // Column L
+  tRoasSimulationTopSlotImpressions: 12,        // Column M
+  formulas: 13                                  // Column N, start of formulas
 };
 
 const CustomerLabelsIndex = {
@@ -119,6 +165,11 @@ function getSimulationsHeaders() {
   headers[SimLabelsIndex.tRoasSimulationCost] = "Cost";
   headers[SimLabelsIndex.tRoasSimulationImpressions] = "Impressions";
   headers[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = "Top Slot Impressions";
+
+  // Add formulas headers
+  for(let formula of SimulationFormulas) {
+    headers.push(formula.header);
+  };
 
   return headers;
 }
@@ -587,6 +638,7 @@ function loadSimulations() {
   clearSheet(SIM_SHEET);
   let apiRows = getAllSimulations();
   appendRows(SIM_SHEET, apiRows);
+  appendFormulas();
 }
 
 /**
@@ -703,4 +755,21 @@ function clearSheet(sheetName) {
   if(lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
   }
+}
+
+/**
+ * Appends formulas columns to all rows
+ */
+function appendFormulas() {
+  let sheet = getSpreadsheet(SIM_SHEET);
+  let lastRow = sheet.getLastRow();
+  if(lastRow <= 2) return;
+  SimulationFormulas.forEach((value, index) => {
+    // R1C1 column position is offset by 1 
+    let column = SimLabelsIndex.formulas + index + 1;
+    sheet.getRange(2, column)
+      .setFormula(value.formula)
+      // Copy to rest rows
+      .copyTo(sheet.getRange(3, column, lastRow - 2));
+  });
 }
