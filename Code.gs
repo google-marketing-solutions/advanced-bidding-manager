@@ -61,7 +61,7 @@ const SimulationFormulas = [
   // Subtracting current cost (Q) from simulated cost (K)
   {
     header: "Cost diff ($)",
-    formula: "Q2-K2"
+    formula: "K2-Q2"
   },
   // Rank simulation data points based on the value-cost (N)
   {
@@ -72,6 +72,11 @@ const SimulationFormulas = [
   {
     header: "ROAS change (%)",
     formula: "G2/C2"
+  },
+  // Incremental ROAS
+  {
+    header: "Incr ROAS",
+    formula: "IF(P2>=0, P2/MAX(R2,0.1), R2/P2)"
   }
 ];
 
@@ -86,9 +91,9 @@ const TargetsLabelsIndex = {
 
 const SimLabelsIndex = {
   customerName: 0,                              // Column A
-  bidStrategyName: 1,                           // Column B
-  bidStrategyCurrentTRoas: 2,                   // Column C
-  bidStrategyId: 3,                             // Column D
+  entityName: 1,                                // Column B
+  entityId: 2,                                  // Column C
+  currentTRoas: 3,                              // Column D
   startDate: 4,                                 // Column E
   endDate: 5,                                   // Column F
   tRoasSimulationTargetRoas: 6,                 // Column G
@@ -152,13 +157,13 @@ function getTargetsHeaders() {
  */
 function getSimulationsHeaders() {
   let headers = [];
-  headers[SimLabelsIndex.customerName] = "Customer Name";
-  headers[SimLabelsIndex.bidStrategyName] = "Bidding Strategy Name";
-  headers[SimLabelsIndex.bidStrategyCurrentTRoas] = "Bidding Strategy Current Target Roas"
-  headers[SimLabelsIndex.bidStrategyId] = "Bidding Strategy Id";
-  headers[SimLabelsIndex.startDate] = "Start Date";
-  headers[SimLabelsIndex.endDate] = "End Date";
-  headers[SimLabelsIndex.tRoasSimulationTargetRoas] = "TARGET ROAS";
+  headers[SimLabelsIndex.customerName] = "Customer name";
+  headers[SimLabelsIndex.entityName] = "Simulated entity name";
+  headers[SimLabelsIndex.entityId] = "Simulated entity Id";
+  headers[SimLabelsIndex.currentTRoas] = "Current target Roas"
+  headers[SimLabelsIndex.startDate] = "Start date";
+  headers[SimLabelsIndex.endDate] = "End date";
+  headers[SimLabelsIndex.tRoasSimulationTargetRoas] = "Target ROAS";
   headers[SimLabelsIndex.tRoasSimulationBiddableConversions] = "Biddable Conversions";
   headers[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = "Biddable Conversions Value";
   headers[SimLabelsIndex.tRoasSimulationClicks] = "Clicks";
@@ -179,7 +184,7 @@ function getSimulationsHeaders() {
  */
 function getCustomerHeaders(){
   let headers = [];
-  headers[CustomerLabelsIndex.customerName] = "Customer Descriptive Name";
+  headers[CustomerLabelsIndex.customerName] = "Customer name";
   headers[CustomerLabelsIndex.customerLevel] = "Level";
   headers[CustomerLabelsIndex.isManager] = "Manager"
   headers[CustomerLabelsIndex.customerId] = "Customer Id";
@@ -535,7 +540,7 @@ function loadTargets() {
   updateRows(TARGETS_SHEET, apiRows, TargetsLabelsIndex.id);
 }
 
-/** 
+/**
  * Build GAQL select statement including given columns and configured metrics
  */
 function buildGaqlColumns(columns) {
@@ -584,7 +589,7 @@ function getMetricHeader(metricName) {
 /**
  * Retrieve tROAS bidding strategies simulations
  */
-function getAllSimulations() {
+function getStrategySimulations() {
   let data = {
     "query": `
         SELECT
@@ -607,12 +612,12 @@ function getAllSimulations() {
       let points = s.biddingStrategySimulation.targetRoasPointList.points;
       for (p of points){
         let row = [];
-        row[SimLabelsIndex.bidStrategyId] = s.biddingStrategySimulation.biddingStrategyId;
-        row[SimLabelsIndex.bidStrategyName] = s.biddingStrategy.name;
+        row[SimLabelsIndex.entityId] = s.biddingStrategySimulation.biddingStrategyId;
+        row[SimLabelsIndex.entityName] = `Strategy: ${s.biddingStrategy.name}`;
         row[SimLabelsIndex.startDate] = s.biddingStrategySimulation.startDate;
         row[SimLabelsIndex.endDate] = s.biddingStrategySimulation.endDate;
         row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
-        row[SimLabelsIndex.bidStrategyCurrentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
+        row[SimLabelsIndex.currentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
         row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
         row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
         row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
@@ -627,7 +632,61 @@ function getAllSimulations() {
   catch (error) {
     console.log(error);
   }
-  
+
+  return apiRows;
+}
+
+/**
+ * Retrieve tROAS campaign simulations
+ */
+function getCampaignSimulations() {
+  let data = {
+    "query": `
+      SELECT
+        customer.descriptive_name,
+        campaign.name,
+        campaign.maximize_conversion_value.target_roas,
+        campaign.target_roas.target_roas,
+        campaign_simulation.campaign_id,
+        campaign_simulation.start_date,
+        campaign_simulation.end_date,
+        campaign_simulation.target_roas_point_list.points
+      FROM campaign_simulation
+      WHERE
+        campaign_simulation.type = 'TARGET_ROAS'
+        AND campaign.bidding_strategy_type = 'TARGET_ROAS'
+    `
+  };
+
+  let simulations = callApiAll("/googleAds:search", data);
+  let apiRows = [];
+  try {
+    for(s of simulations) {
+      let points = s.campaignSimulation.targetRoasPointList.points;
+      for (p of points){
+        let row = [];
+        row[SimLabelsIndex.entityId] = s.campaignSimulation.campaignId;
+        row[SimLabelsIndex.entityName] = `Campaign: ${s.campaign.name}`;
+        row[SimLabelsIndex.startDate] = s.campaignSimulation.startDate;
+        row[SimLabelsIndex.endDate] = s.campaignSimulation.endDate;
+        row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
+        row[SimLabelsIndex.currentTRoas] = s.campaign.maximizeConversionValue.targetRoas
+         || s.campaign.targetRoas.targetRoas;
+        row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
+        row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
+        row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
+        row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
+        row[SimLabelsIndex.tRoasSimulationCost] = p.costMicros / 1e6;
+        row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
+        row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
+        apiRows.push(row);
+      }
+    }
+  }
+  catch (error) {
+    console.log(error);
+  }
+
   return apiRows;
 }
 
@@ -636,8 +695,12 @@ function getAllSimulations() {
  */
 function loadSimulations() {
   clearSheet(SIM_SHEET);
-  let apiRows = getAllSimulations();
-  appendRows(SIM_SHEET, apiRows);
+
+  let allSimulations = getStrategySimulations();
+  let campaignSimulations = getCampaignSimulations();
+  allSimulations.concat(campaignSimulations);
+
+  appendRows(SIM_SHEET, allSimulations);
   appendFormulas();
 }
 
