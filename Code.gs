@@ -34,48 +34,48 @@ const API_ENDPOINT = "https://googleads.googleapis.com/v13/customers/";
 const SimulationFormulas = [
   // Subtracting cost (K) from conversion value (I)
   {
-    header: "Value-cost ($)",
+    header: "Value-cost",
     formula: "I2-K2"
   },
-  // VLookup of conversion value (I) on closest ROAS target (G) to current target (C)
+  // VLookup of conversion value (I) on closest ROAS target (G) to current target (D)
   {
-    header: "Value target ($)",
-    formula: `VLOOKUP(C2, 
-      SORT(FILTER(G:K, D:D = D2), 1, TRUE), 
-      COLUMN(I2)-COLUMN(G2)+1, 
+    header: "Value target",
+    formula: `VLOOKUP(D2,
+      SORT(FILTER(G:K, C:C = C2), 1, TRUE),
+      COLUMN(I2)-COLUMN(G2)+1,
       TRUE)`
   },
   // Subtracting current conversion value (O) from simulated conversion value (I)
   {
-    header: "Value diff ($)",
+    header: "Value diff",
     formula: "I2-O2"
   },
-  // VLookup of cost (K) on closest ROAS target (G) to current target (C)
+  // VLookup of cost (K) on closest ROAS target (G) to current target (D)
   {
-    header: "Cost target ($)",
-    formula: `VLOOKUP(C2, 
-      SORT(FILTER(G:K, D:D = D2), 1, TRUE), 
-      COLUMN(K2)-COLUMN(G2)+1, 
+    header: "Cost target",
+    formula: `VLOOKUP(D2,
+      SORT(FILTER(G:K, C:C = C2), 1, TRUE),
+      COLUMN(K2)-COLUMN(G2)+1,
       TRUE)`
   },
   // Subtracting current cost (Q) from simulated cost (K)
   {
-    header: "Cost diff ($)",
+    header: "Cost diff",
     formula: "K2-Q2"
   },
   // Rank simulation data points based on the value-cost (N)
   {
-    header: "Rank",
-    formula: "RANK(N2, FILTER(N:N, D:D = D2))"
+    header: "Rank (value-cost)",
+    formula: "RANK(N2, FILTER(N:N, C:C = C2))"
   },
-  // Relative change of simulated (G) to current ROAS target (C)
+  // Relative change of simulated (G) to current ROAS target (D)
   {
     header: "ROAS change (%)",
-    formula: "G2/C2"
+    formula: "G2/D2"
   },
   // Incremental ROAS
   {
-    header: "Incr ROAS",
+    header: "Incremental ROAS",
     formula: "IF(P2>=0, P2/MAX(R2,0.1), R2/P2)"
   }
 ];
