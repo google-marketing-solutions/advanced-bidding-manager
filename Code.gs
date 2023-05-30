@@ -32,51 +32,51 @@ const API_ENDPOINT = "https://googleads.googleapis.com/v13/customers/";
 
 // Calculated formulas on top of simulation data-points to enrich
 const SimulationFormulas = [
-  // Subtracting cost (K) from conversion value (I)
+  // Subtracting cost (M) from conversion value (K)
   {
     header: "Value-cost",
-    formula: "I2-K2"
+    formula: "K2-M2"
   },
-  // VLookup of conversion value (I) on closest ROAS target (G) to current target (D)
+  // VLookup of conversion value (K) on closest target (I) to current target (F)
   {
     header: "Value target",
-    formula: `VLOOKUP(D2,
-      SORT(FILTER(G:K, C:C = C2), 1, TRUE),
-      COLUMN(I2)-COLUMN(G2)+1,
+    formula: `VLOOKUP(F2,
+      SORT(FILTER(I:M, C:C = C2), 1, TRUE),
+      COLUMN(K2)-COLUMN(I2)+1,
       TRUE)`
   },
-  // Subtracting current conversion value (O) from simulated conversion value (I)
+  // Subtracting current conversion value (Q) from simulated conversion value (K)
   {
     header: "Value diff",
-    formula: "I2-O2"
-  },
-  // VLookup of cost (K) on closest ROAS target (G) to current target (D)
-  {
-    header: "Cost target",
-    formula: `VLOOKUP(D2,
-      SORT(FILTER(G:K, C:C = C2), 1, TRUE),
-      COLUMN(K2)-COLUMN(G2)+1,
-      TRUE)`
-  },
-  // Subtracting current cost (Q) from simulated cost (K)
-  {
-    header: "Cost diff",
     formula: "K2-Q2"
   },
-  // Rank simulation data points based on the value-cost (N)
+  // VLookup of cost (M) on closest target (I) to current target (F)
+  {
+    header: "Cost target",
+    formula: `VLOOKUP(F2,
+      SORT(FILTER(I:M, C:C = C2), 1, TRUE),
+      COLUMN(M2)-COLUMN(I2)+1,
+      TRUE)`
+  },
+  // Subtracting current cost (S) from simulated cost (M)
+  {
+    header: "Cost diff",
+    formula: "M2-S2"
+  },
+  // Rank simulation data points based on the value-cost (P)
   {
     header: "Rank (value-cost)",
-    formula: "RANK(N2, FILTER(N:N, C:C = C2))"
+    formula: "RANK(P2, FILTER(P:P, C:C = C2))"
   },
-  // Relative change of simulated (G) to current ROAS target (D)
+  // Relative change of simulated (I) to current target (F)
   {
     header: "ROAS change (%)",
-    formula: "G2/D2"
+    formula: "I2/F2"
   },
-  // Incremental ROAS
+  // Incremental target
   {
-    header: "Incremental ROAS",
-    formula: "IF(P2>=0, P2/MAX(R2,0.1), R2/P2)"
+    header: "Incremental target",
+    formula: "IF(R2>=0, R2/MAX(T2,0.1), T2/R2)"
   }
 ];
 
@@ -93,17 +93,19 @@ const SimLabelsIndex = {
   customerName: 0,                              // Column A
   entityName: 1,                                // Column B
   entityId: 2,                                  // Column C
-  currentTRoas: 3,                              // Column D
-  startDate: 4,                                 // Column E
-  endDate: 5,                                   // Column F
-  tRoasSimulationTargetRoas: 6,                 // Column G
-  tRoasSimulationBiddableConversions: 7,        // Column H
-  tRoasSimulationBiddableConversionsValue: 8,   // Column I
-  tRoasSimulationClicks:9,                      // Column J
-  tRoasSimulationCost: 10,                      // Column K
-  tRoasSimulationImpressions: 11,               // Column L
-  tRoasSimulationTopSlotImpressions: 12,        // Column M
-  formulas: 13                                  // Column N, start of formulas
+  strategyType: 3,                              // Column D
+  simulationType: 4,                            // Column E
+  currentTarget: 5,                             // Column F
+  startDate: 6,                                 // Column G
+  endDate: 7,                                   // Column H
+  simulationTarget: 8,                          // Column I
+  simulationBiddableConversions: 9,             // Column J
+  simulationBiddableConversionsValue: 10,       // Column K
+  simulationClicks: 11,                         // Column L
+  simulationCost: 12,                           // Column M
+  simulationImpressions: 13,                    // Column N
+  simulationTopSlotImpressions: 14,             // Column O
+  formulas: 15                                  // Column P, start of formulas
 };
 
 const CustomerLabelsIndex = {
@@ -112,6 +114,13 @@ const CustomerLabelsIndex = {
   isManager: 2,
   customerId: 3,
   parentMccId: 4
+};
+
+const StragegyType = {
+  targetRoas: 'TARGET_ROAS',
+  targetCPA: 'TARGET_CPA',
+  maximizeConversionValue: 'MAXIMIZE_CONVERSION_VALUE',
+  maximizeConversions: 'MAXIMIZE_CONVERSIONS'
 };
 
 /**
@@ -159,17 +168,19 @@ function getSimulationsHeaders() {
   let headers = [];
   headers[SimLabelsIndex.customerName] = "Customer name";
   headers[SimLabelsIndex.entityName] = "Simulated entity name";
-  headers[SimLabelsIndex.entityId] = "Simulated entity Id";
-  headers[SimLabelsIndex.currentTRoas] = "Current target Roas"
+  headers[SimLabelsIndex.entityId] = "Simulated entity ID";
+  headers[SimLabelsIndex.strategyType] = "Strategy type"
+  headers[SimLabelsIndex.simulationType] = "Simulation type"
+  headers[SimLabelsIndex.currentTarget] = "Current target"
   headers[SimLabelsIndex.startDate] = "Start date";
   headers[SimLabelsIndex.endDate] = "End date";
-  headers[SimLabelsIndex.tRoasSimulationTargetRoas] = "Target ROAS";
-  headers[SimLabelsIndex.tRoasSimulationBiddableConversions] = "Biddable Conversions";
-  headers[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = "Biddable Conversions Value";
-  headers[SimLabelsIndex.tRoasSimulationClicks] = "Clicks";
-  headers[SimLabelsIndex.tRoasSimulationCost] = "Cost";
-  headers[SimLabelsIndex.tRoasSimulationImpressions] = "Impressions";
-  headers[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = "Top Slot Impressions";
+  headers[SimLabelsIndex.simulationTarget] = "Simulation target";
+  headers[SimLabelsIndex.simulationBiddableConversions] = "Biddable conversions";
+  headers[SimLabelsIndex.simulationBiddableConversionsValue] = "Biddable conversions value";
+  headers[SimLabelsIndex.simulationClicks] = "Clicks";
+  headers[SimLabelsIndex.simulationCost] = "Cost";
+  headers[SimLabelsIndex.simulationImpressions] = "Impressions";
+  headers[SimLabelsIndex.simulationTopSlotImpressions] = "Top slot impressions";
 
   // Add formulas headers
   for(let formula of SimulationFormulas) {
@@ -187,7 +198,7 @@ function getCustomerHeaders(){
   headers[CustomerLabelsIndex.customerName] = "Customer name";
   headers[CustomerLabelsIndex.customerLevel] = "Level";
   headers[CustomerLabelsIndex.isManager] = "Manager"
-  headers[CustomerLabelsIndex.customerId] = "Customer Id";
+  headers[CustomerLabelsIndex.customerId] = "Customer ID";
   headers[CustomerLabelsIndex.parentMccId] = "Parent MCC ID";
 
   return headers;
@@ -594,37 +605,43 @@ function getStrategySimulations() {
     "query": `
         SELECT
           bidding_strategy_simulation.bidding_strategy_id,
+          bidding_strategy_simulation.type,
+          bidding_strategy.type,
           bidding_strategy_simulation.start_date,
           bidding_strategy_simulation.end_date,
           bidding_strategy_simulation.target_roas_point_list.points,
+          bidding_strategy_simulation.target_cpa_point_list.points,
           bidding_strategy.name,
           bidding_strategy.target_roas.target_roas,
+          bidding_strategy.target_cpa.target_cpa_micros,
           customer.descriptive_name
         FROM bidding_strategy_simulation
         WHERE
-          bidding_strategy_simulation.type = 'TARGET_ROAS'
-          AND bidding_strategy.type = 'TARGET_ROAS'`
+          bidding_strategy_simulation.type IN ('${StragegyType.targetRoas}', '${StragegyType.targetCPA}')
+          AND bidding_strategy.type IN ('${StragegyType.targetRoas}', '${StragegyType.targetCPA}')`
   };
   let simulations = callApiAll("/googleAds:search", data);
   let apiRows = [];
   try {
     for(s of simulations) {
-      let points = s.biddingStrategySimulation.targetRoasPointList.points;
+      let points = s.biddingStrategySimulation.type == StragegyType.targetRoas ? s.biddingStrategySimulation.targetRoasPointList.points : s.biddingStrategySimulation.targetCpaPointList.points;
       for (p of points){
         let row = [];
         row[SimLabelsIndex.entityId] = s.biddingStrategySimulation.biddingStrategyId;
+        row[SimLabelsIndex.simulationType] = s.biddingStrategySimulation.type;
+        row[SimLabelsIndex.strategyType] = s.biddingStrategy.type;
         row[SimLabelsIndex.entityName] = `Strategy: ${s.biddingStrategy.name}`;
         row[SimLabelsIndex.startDate] = s.biddingStrategySimulation.startDate;
         row[SimLabelsIndex.endDate] = s.biddingStrategySimulation.endDate;
         row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
-        row[SimLabelsIndex.currentTRoas] = s.biddingStrategy.targetRoas.targetRoas;
-        row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
-        row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
-        row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
-        row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
-        row[SimLabelsIndex.tRoasSimulationCost] = p.costMicros / 1e6;
-        row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
-        row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
+        row[SimLabelsIndex.currentTarget] = s.biddingStrategySimulation.type == StragegyType.targetRoas ? s.biddingStrategy.targetRoas.targetRoas : s.biddingStrategy.targetCpa.targetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationTarget] = s.biddingStrategySimulation.type == StragegyType.targetRoas ? p.targetRoas : p.targetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationBiddableConversions] = p.biddableConversions;
+        row[SimLabelsIndex.simulationBiddableConversionsValue] = p.biddableConversionsValue;
+        row[SimLabelsIndex.simulationClicks] = p.clicks;
+        row[SimLabelsIndex.simulationCost] = p.costMicros / 1e6;
+        row[SimLabelsIndex.simulationImpressions] = p.impressions;
+        row[SimLabelsIndex.simulationTopSlotImpressions] = p.topSlotImpressions;
         apiRows.push(row);
       }
     }
@@ -645,16 +662,23 @@ function getCampaignSimulations() {
       SELECT
         customer.descriptive_name,
         campaign.name,
+        campaign_simulation.type,
+        campaign.bidding_strategy_type,
         campaign.maximize_conversion_value.target_roas,
+        campaign.maximize_conversions.target_cpa_micros,
+        campaign.target_cpa.target_cpa_micros,
         campaign.target_roas.target_roas,
         campaign_simulation.campaign_id,
         campaign_simulation.start_date,
         campaign_simulation.end_date,
-        campaign_simulation.target_roas_point_list.points
+        campaign_simulation.target_roas_point_list.points,
+        campaign_simulation.target_cpa_point_list.points
       FROM campaign_simulation
       WHERE
-        campaign_simulation.type = 'TARGET_ROAS'
-        AND campaign.bidding_strategy_type = 'TARGET_ROAS'
+        campaign_simulation.type IN ('${StragegyType.targetRoas}', '${StragegyType.targetCPA}')
+        AND campaign.bidding_strategy_type IN ('${StragegyType.maximizeConversionValue}', '${StragegyType.maximizeConversions}',
+        '${StragegyType.targetRoas}', '${StragegyType.targetCPA}')
+        AND campaign.bidding_strategy IS NULL
     `
   };
 
@@ -662,23 +686,24 @@ function getCampaignSimulations() {
   let apiRows = [];
   try {
     for(s of simulations) {
-      let points = s.campaignSimulation.targetRoasPointList.points;
+      let points = s.campaignSimulation.type == StragegyType.targetRoas ? s.campaignSimulation.targetRoasPointList.points : s.campaignSimulation.targetCpaPointList.points;
       for (p of points){
         let row = [];
         row[SimLabelsIndex.entityId] = s.campaignSimulation.campaignId;
         row[SimLabelsIndex.entityName] = `Campaign: ${s.campaign.name}`;
+        row[SimLabelsIndex.simulationType] = s.campaignSimulation.type;
+        row[SimLabelsIndex.strategyType] = s.campaign.biddingStrategyType;
         row[SimLabelsIndex.startDate] = s.campaignSimulation.startDate;
         row[SimLabelsIndex.endDate] = s.campaignSimulation.endDate;
         row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
-        row[SimLabelsIndex.currentTRoas] = s.campaign.maximizeConversionValue.targetRoas
-         || s.campaign.targetRoas.targetRoas;
-        row[SimLabelsIndex.tRoasSimulationTargetRoas] = p.targetRoas;
-        row[SimLabelsIndex.tRoasSimulationBiddableConversions] = p.biddableConversions;
-        row[SimLabelsIndex.tRoasSimulationBiddableConversionsValue] = p.biddableConversionsValue;
-        row[SimLabelsIndex.tRoasSimulationClicks] = p.clicks;
-        row[SimLabelsIndex.tRoasSimulationCost] = p.costMicros / 1e6;
-        row[SimLabelsIndex.tRoasSimulationImpressions] = p.impressions;
-        row[SimLabelsIndex.tRoasSimulationTopSlotImpressions] = p.topSlotImpressions;
+        row[SimLabelsIndex.currentTarget] = getCampaignTarget(s.campaignSimulation.type, s);
+        row[SimLabelsIndex.simulationTarget] = s.campaignSimulation.type == StragegyType.targetRoas ? p.targetRoas : p.targetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationBiddableConversions] = p.biddableConversions;
+        row[SimLabelsIndex.simulationBiddableConversionsValue] = p.biddableConversionsValue;
+        row[SimLabelsIndex.simulationClicks] = p.clicks;
+        row[SimLabelsIndex.simulationCost] = p.costMicros / 1e6;
+        row[SimLabelsIndex.simulationImpressions] = p.impressions;
+        row[SimLabelsIndex.simulationTopSlotImpressions] = p.topSlotImpressions;
         apiRows.push(row);
       }
     }
@@ -688,6 +713,19 @@ function getCampaignSimulations() {
   }
 
   return apiRows;
+}
+
+/**
+ * Retrieves the currentTarget value for the campaign bidding simulation
+ */
+function getCampaignTarget(strategyType, simulation) {
+  if (strategyType == StragegyType.targetRoas) {
+    return simulation.campaign.maximizeConversionValue.targetRoas || s.campaign.targetRoas.targetRoas;
+  } else if (strategyType == StragegyType.targetCPA) {
+    let maximizeConversionsTargetCPA = simulation.campaign.maximizeConversions.targetCpaMicros / 1e6;
+    let targetCPA = simulation.campaign.targetCpa.targetCpaMicros / 1e6;
+    return maximizeConversionsTargetCPA || targetCPA;
+  }
 }
 
 /**

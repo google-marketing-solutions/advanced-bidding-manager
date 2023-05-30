@@ -74,6 +74,7 @@ cd ..
 ## Using the solution
 
  1. Open the Spreadsheet, go to the **Ads Bidding** menu > **Initialize Spreadsheet**.
+    Note: In case you are upgrading from an earlier version, delete all sheets before running step (1).
 
  2. Use the **Ads Bidding** menu > **Load Customer Ids** menu item.
     It will fetch all customer ids under a given LOGIN_CUSTOMER_ID and populate the "Customers" sheet.
