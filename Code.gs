@@ -736,7 +736,7 @@ function loadSimulations() {
 
   let allSimulations = getStrategySimulations();
   let campaignSimulations = getCampaignSimulations();
-  allSimulations.concat(campaignSimulations);
+  allSimulations = allSimulations.concat(campaignSimulations);
 
   appendRows(SIM_SHEET, allSimulations);
   appendFormulas();
