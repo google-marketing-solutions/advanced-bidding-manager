@@ -365,6 +365,37 @@ function createCampaignOperation(row) {
 }
 
 /**
+ * Creates an ad group mutate operation
+ * https://developers.google.com/google-ads/api/rest/reference/rest/v13/customers.adGroups/mutate
+ */
+function createAdGroupOperation(row) {
+  if (row[TargetsLabelsIndex.newTargetRoas]) {
+    return {
+      "adGroupOperation": {
+        "updateMask": "targetRoas",
+        "update": {
+          "resourceName": row[TargetsLabelsIndex.id],
+          "targetRoas": row[TargetsLabelsIndex.newTargetRoas]
+        }
+      }
+    };
+  }
+  if (row[TargetsLabelsIndex.newTargetCpa]) {
+    return {
+      "adGroupOperation": {
+        "updateMask": "targetCpaMicros",
+        "update": {
+          "resourceName": row[TargetsLabelsIndex.id],
+          "targetCpaMicros": row[TargetsLabelsIndex.newTargetCpa]
+        }
+      }
+    };
+  }
+
+  throw new Error(`Invalid ad group operation: ${row}`);
+}
+
+/**
  * Updates bidding strategy targets via Google Ads API
  */
 function updateTargets() {
@@ -396,8 +427,12 @@ function updateTargets() {
           return r[TargetsLabelsIndex.id].indexOf(cid + "/campaigns") > -1;
         }).map(r => createCampaignOperation(r));
 
+    let adGroupOperations = toUpdate.filter((r) => {
+          return r[TargetsLabelsIndex.id].indexOf(cid + "/adGroups") > -1;
+        }).map(r => createAdGroupOperation(r));
+
     let data = {
-      "mutateOperations": biddingStrategyOperations.concat(campaignOperations)
+      "mutateOperations": biddingStrategyOperations.concat(campaignOperations).concat(adGroupOperations)
     };
 
     if(data.mutateOperations.length > 0) {
@@ -414,8 +449,9 @@ function updateTargets() {
 function getAllTargets() {
   let allTargets = getPortfolioTargets();
   let campaignTargets = getCampaignTargets();
+  let adGroupTargets = getAdGroupTargets();
 
-  return allTargets.concat(campaignTargets);
+  return allTargets.concat(campaignTargets).concat(adGroupTargets);
 }
 
 /**
@@ -532,6 +568,67 @@ function getCampaignTargets() {
       for(let d of DATE_RANGES) {
         let entry = campaigns[d].find(
           group => group.campaign.resourceName == r.campaign.resourceName
+        );
+        row.push(readMetric(entry, m));
+      }
+    }
+
+    return row;
+  });
+
+  return rows;
+}
+
+/**
+ * Returns array containing ad group bidding targets segmented by date range
+ */
+function getAdGroupTargetsByDateRange() {
+  let columns = [
+    "ad_group.name",
+    "ad_group.target_roas",
+    "ad_group.target_cpa_micros"
+  ];
+  let selectGaql = buildGaqlColumns(columns);
+
+  let ad_groups = [];
+  for(d of DATE_RANGES) {
+    let data = {
+      "query": `
+          SELECT ${selectGaql}
+          FROM ad_group
+          WHERE
+            ad_group.status != 'REMOVED'
+            AND segments.date DURING ${d}`
+    };
+    ad_groups[d] = callApiAll("/googleAds:search", data);
+  }
+
+  return ad_groups;
+}
+
+/**
+ * Retrieve ad group targets
+ * https://developers.google.com/google-ads/api/fields/v12/ad_group_query_builder
+ */
+function getAdGroupTargets() {
+  let ad_groups = getAdGroupTargetsByDateRange();
+
+  // Keep only ad group level CPA and ROAS strategies
+  let rows = ad_groups[DATE_RANGES[0]].filter((r) => {
+    return (r.adGroup.targetRoas > 0 || r.adGroup.targetCpaMicros > 0);
+  }).map((r) => {
+    let row = [];
+    row[TargetsLabelsIndex.id] = r.adGroup.resourceName;
+    row[TargetsLabelsIndex.name] = r.adGroup.name;
+    row[TargetsLabelsIndex.targetRoas] = r.adGroup.targetRoas;
+    row[TargetsLabelsIndex.targetCpa] = r.adGroup.targetCpaMicros;
+    row[TargetsLabelsIndex.newTargetRoas] = "";
+    row[TargetsLabelsIndex.newTargetCpa] = "";
+
+    for(let m of TARGETS_METRICS) {
+      for(let d of DATE_RANGES) {
+        let entry = ad_groups[d].find(
+          group => group.adGroup.resourceName == r.adGroup.resourceName
         );
         row.push(readMetric(entry, m));
       }
