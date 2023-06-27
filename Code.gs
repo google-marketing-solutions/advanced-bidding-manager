@@ -819,9 +819,7 @@ function getCampaignTarget(strategyType, simulation) {
   if (strategyType == StragegyType.targetRoas) {
     return simulation.campaign.maximizeConversionValue.targetRoas || s.campaign.targetRoas.targetRoas;
   } else if (strategyType == StragegyType.targetCPA) {
-    let maximizeConversionsTargetCPA = simulation.campaign.maximizeConversions.targetCpaMicros / 1e6;
-    let targetCPA = simulation.campaign.targetCpa.targetCpaMicros / 1e6;
-    return maximizeConversionsTargetCPA || targetCPA;
+    return (simulation.campaign.maximizeConversions.targetCpaMicros / 1e6) || (simulation.campaign.targetCpa.targetCpaMicros / 1e6);
   }
 }
 
