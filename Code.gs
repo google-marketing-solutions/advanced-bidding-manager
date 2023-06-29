@@ -262,7 +262,14 @@ function callApi(url, data) {
   }
 
   let response = UrlFetchApp.fetch(url, options);
-  return JSON.parse(response.getContentText());
+  let responseContentText = JSON.parse(response.getContentText());
+
+  if (url.includes('searchStream')) {
+    //searchStream returns the response wrapped in a JSON array
+    return responseContentText[0];
+  } else {
+    return responseContentText;
+  }
 }
 
 /**
@@ -537,7 +544,7 @@ function getCampaignTargetsByDateRange() {
             campaign.status != 'REMOVED'
             AND segments.date DURING ${d}`
     };
-    campaigns[d] = callApiAll("/googleAds:search", data);
+    campaigns[d] = callApiAll("/googleAds:searchStream", data);
   }
 
   return campaigns;
@@ -600,7 +607,7 @@ function getAdGroupTargetsByDateRange() {
             ad_group.status != 'REMOVED'
             AND segments.date DURING ${d}`
     };
-    ad_groups[d] = callApiAll("/googleAds:search", data);
+    ad_groups[d] = callApiAll("/googleAds:searchStream", data);
   }
 
   return ad_groups;
