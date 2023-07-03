@@ -123,6 +123,10 @@ const StrategyType = {
   maximizeConversions: 'MAXIMIZE_CONVERSIONS'
 };
 
+const TargetSource = {
+  campaignStrategy: 'CAMPAIGN_BIDDING_STRATEGY'
+};
+
 /**
  * Executed when opening the spreadsheet
  */
@@ -533,7 +537,6 @@ function getCampaignTargetsByDateRange() {
     "campaign.maximize_conversions.target_cpa_micros"
   ];
   let selectGaql = buildGaqlColumns(columns);
-
   let campaigns = [];
   for(d of DATE_RANGES) {
     let data = {
@@ -542,11 +545,13 @@ function getCampaignTargetsByDateRange() {
           FROM campaign
           WHERE
             campaign.status != 'REMOVED'
-            AND segments.date DURING ${d}`
+            AND segments.date DURING ${d}
+            AND campaign.bidding_strategy IS NULL
+            AND campaign.bidding_strategy_type IN (${StrategyType.targetRoas}, ${StrategyType.targetCPA},
+                                                   ${StrategyType.maximizeConversions}, ${StrategyType.maximizeConversionValue})`
     };
     campaigns[d] = callApiAll("/googleAds:searchStream", data);
   }
-
   return campaigns;
 }
 
@@ -596,20 +601,20 @@ function getAdGroupTargetsByDateRange() {
     "ad_group.target_cpa_micros"
   ];
   let selectGaql = buildGaqlColumns(columns);
-
   let ad_groups = [];
-  for(d of DATE_RANGES) {
+  for (d of DATE_RANGES) {
     let data = {
       "query": `
           SELECT ${selectGaql}
           FROM ad_group
           WHERE
             ad_group.status != 'REMOVED'
-            AND segments.date DURING ${d}`
+            AND segments.date DURING ${d}
+            AND ad_group.effective_target_cpa_source NOT IN (${TargetSource.campaignStrategy})
+            AND ad_group.effective_target_roas_source NOT IN (${TargetSource.campaignStrategy})`
     };
     ad_groups[d] = callApiAll("/googleAds:searchStream", data);
   }
-
   return ad_groups;
 }
 
