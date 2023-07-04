@@ -825,6 +825,62 @@ function getCampaignSimulations() {
 }
 
 /**
+ * Retrieve ad group simulations
+ */
+function getAdGroupSimulations() {
+  let data = {
+    "query": `
+      SELECT
+        customer.descriptive_name,
+        ad_group.name,
+        ad_group_simulation.type,
+        ad_group.effective_target_cpa_micros,
+        ad_group.effective_target_roas,
+        ad_group_simulation.ad_group_id,
+        ad_group_simulation.start_date,
+        ad_group_simulation.end_date,
+        ad_group_simulation.target_roas_point_list.points,
+        ad_group_simulation.target_cpa_point_list.points
+      FROM ad_group_simulation
+      WHERE
+        ad_group_simulation.type IN ('${StragegyType.targetRoas}', '${StragegyType.targetCPA}')
+    `
+  };
+
+  let simulations = callApiAll("/googleAds:search", data);
+  let apiRows = [];
+  try {
+    for(s of simulations) {
+      let points = s.adGroupSimulation.type == StragegyType.targetRoas ? s.adGroupSimulation.targetRoasPointList.points : s.adGroupSimulation.targetCpaPointList.points;
+      for (p of points){
+        let row = [];
+        row[SimLabelsIndex.entityId] = s.adGroupSimulation.adGroupId;
+        row[SimLabelsIndex.entityName] = `Ad Group: ${s.adGroup.name}`;
+        row[SimLabelsIndex.simulationType] = s.adGroupSimulation.type;
+        row[SimLabelsIndex.strategyType] = s.adGroup.effectiveTargetRoas > 0 ? 'TARGET_ROAS' : s.adGroup.effectiveTargetCpaMicros > 0 ? 'TARGET_CPA' : 'Other';
+        row[SimLabelsIndex.startDate] = s.adGroupSimulation.startDate;
+        row[SimLabelsIndex.endDate] = s.adGroupSimulation.endDate;
+        row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
+        row[SimLabelsIndex.currentTarget] = s.adGroup.effectiveTargetRoas > 0 ? s.adGroup.effectiveTargetRoas : s.adGroup.effectiveTargetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationTarget] = s.adGroupSimulation.type == StragegyType.targetRoas ? p.targetRoas : p.targetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationBiddableConversions] = p.biddableConversions;
+        row[SimLabelsIndex.simulationBiddableConversionsValue] = p.biddableConversionsValue;
+        row[SimLabelsIndex.simulationClicks] = p.clicks;
+        row[SimLabelsIndex.simulationCost] = p.costMicros / 1e6;
+        row[SimLabelsIndex.simulationImpressions] = p.impressions;
+        row[SimLabelsIndex.simulationTopSlotImpressions] = p.topSlotImpressions;
+        apiRows.push(row);
+      }
+    }
+  }
+  catch (error) {
+    console.log(error);
+  }
+
+  return apiRows;
+}
+
+/**
  * Retrieves the currentTarget value for the campaign bidding simulation
  */
 function getCampaignTarget(strategyType, simulation) {
@@ -844,7 +900,8 @@ function loadSimulations() {
   let allSimulations = getStrategySimulations();
   let campaignSimulations = getCampaignSimulations();
   allSimulations = allSimulations.concat(campaignSimulations);
-
+  let adGroupSimulations = getAdGroupSimulations();
+  allSimulations = allSimulations.concat(adGroupSimulations);
   appendRows(SIM_SHEET, allSimulations);
   appendFormulas();
 }
