@@ -28,7 +28,7 @@ const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
 const CID_SHEET = "Customers";
 
-const API_ENDPOINT = "https://googleads.googleapis.com/v13/customers/";
+const API_ENDPOINT = "https://googleads.googleapis.com/v14/customers/";
 
 // Calculated formulas on top of simulation data-points to enrich
 const SimulationFormulas = [
@@ -843,7 +843,7 @@ function getAdGroupSimulations() {
         ad_group_simulation.target_cpa_point_list.points
       FROM ad_group_simulation
       WHERE
-        ad_group_simulation.type IN ('${StragegyType.targetRoas}', '${StragegyType.targetCPA}')
+        ad_group_simulation.type IN ('${StrategyType.targetRoas}', '${StrategyType.targetCPA}')
     `
   };
 
@@ -851,7 +851,7 @@ function getAdGroupSimulations() {
   let apiRows = [];
   try {
     for(s of simulations) {
-      let points = s.adGroupSimulation.type == StragegyType.targetRoas ? s.adGroupSimulation.targetRoasPointList.points : s.adGroupSimulation.targetCpaPointList.points;
+      let points = s.adGroupSimulation.type == StrategyType.targetRoas ? s.adGroupSimulation.targetRoasPointList.points : s.adGroupSimulation.targetCpaPointList.points;
       for (p of points){
         let row = [];
         row[SimLabelsIndex.entityId] = s.adGroupSimulation.adGroupId;
@@ -862,7 +862,7 @@ function getAdGroupSimulations() {
         row[SimLabelsIndex.endDate] = s.adGroupSimulation.endDate;
         row[SimLabelsIndex.customerName] = s.customer.descriptiveName;
         row[SimLabelsIndex.currentTarget] = s.adGroup.effectiveTargetRoas > 0 ? s.adGroup.effectiveTargetRoas : s.adGroup.effectiveTargetCpaMicros / 1e6;
-        row[SimLabelsIndex.simulationTarget] = s.adGroupSimulation.type == StragegyType.targetRoas ? p.targetRoas : p.targetCpaMicros / 1e6;
+        row[SimLabelsIndex.simulationTarget] = s.adGroupSimulation.type == StrategyType.targetRoas ? p.targetRoas : p.targetCpaMicros / 1e6;
         row[SimLabelsIndex.simulationBiddableConversions] = p.biddableConversions;
         row[SimLabelsIndex.simulationBiddableConversionsValue] = p.biddableConversionsValue;
         row[SimLabelsIndex.simulationClicks] = p.clicks;
@@ -885,10 +885,22 @@ function getAdGroupSimulations() {
  */
 function getCampaignTarget(strategyType, simulation) {
   if (strategyType == StrategyType.targetRoas) {
-    return simulation.campaign.maximizeConversionValue.targetRoas || s.campaign.targetRoas.targetRoas;
+    if (simulation.campaign.maximizeConversionValue) {
+      return simulation.campaign.maximizeConversionValue.targetRoas;
+    }
+    if (simulation.campaign.targetRoas) {
+      return simulation.campaign.targetRoas.targetRoas;
+    }
   } else if (strategyType == StrategyType.targetCPA) {
-    return (simulation.campaign.maximizeConversions.targetCpaMicros / 1e6) || (simulation.campaign.targetCpa.targetCpaMicros / 1e6);
+    if (simulation.campaign.maximizeConversions) {
+      return simulation.campaign.maximizeConversions.targetCpaMicros / 1e6;
+    }
+    if (simulation.campaign.targetCpa) {
+      return simulation.campaign.targetCpa.targetCpaMicros / 1e6;
+    }
   }
+
+  throw new Error(`Unable to find the campaign target`);
 }
 
 /**
@@ -1030,7 +1042,7 @@ function appendFormulas() {
   let lastRow = sheet.getLastRow();
   if(lastRow <= 2) return;
   SimulationFormulas.forEach((value, index) => {
-    // R1C1 column position is offset by 1 
+    // R1C1 column position is offset by 1
     let column = SimLabelsIndex.formulas + index + 1;
     sheet.getRange(2, column)
       .setFormula(value.formula)
