@@ -268,9 +268,16 @@ function callApi(url, data) {
   let response = UrlFetchApp.fetch(url, options);
   let responseContentText = JSON.parse(response.getContentText());
 
+  //searchStream returns the response wrapped in a JSON array
   if (url.includes('searchStream')) {
-    //searchStream returns the response wrapped in a JSON array
-    return responseContentText[0];
+    let streamResults = {
+      results: []
+    };
+    for(let r of responseContentText) {
+      streamResults.results.push(...r.results);
+    }
+
+    return streamResults;
   } else {
     return responseContentText;
   }
@@ -486,7 +493,7 @@ function getPortfolioTargetsByDateRange() {
             bidding_strategy.status = 'ENABLED'
             AND segments.date DURING ${d}`
     };
-    portfolioStrategies[d] = callApiAll("/googleAds:search", data);
+    portfolioStrategies[d] = callApiAll("/googleAds:searchStream", data);
   }
 
   return portfolioStrategies;
@@ -729,7 +736,7 @@ function getStrategySimulations() {
           bidding_strategy_simulation.type IN ('${StrategyType.targetRoas}', '${StrategyType.targetCPA}')
           AND bidding_strategy.type IN ('${StrategyType.targetRoas}', '${StrategyType.targetCPA}')`
   };
-  let simulations = callApiAll("/googleAds:search", data);
+  let simulations = callApiAll("/googleAds:searchStream", data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -791,7 +798,7 @@ function getCampaignSimulations() {
     `
   };
 
-  let simulations = callApiAll("/googleAds:search", data);
+  let simulations = callApiAll("/googleAds:searchStream", data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -847,7 +854,7 @@ function getAdGroupSimulations() {
     `
   };
 
-  let simulations = callApiAll("/googleAds:search", data);
+  let simulations = callApiAll("/googleAds:searchStream", data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -949,7 +956,7 @@ function getAllMccChildren(mcc){
         WHERE customer_client.status = 'ENABLED'`
   };
 
-  let customers = callApiId("/googleAds:search", data, mcc);
+  let customers = callApiId("/googleAds:searchStream", data, mcc);
   for(c of customers) {
     let row = [];
     row[CustomerLabelsIndex.customerLevel] = c.customerClient.level;
