@@ -14,8 +14,14 @@
  * limitations under the License.
  */
 
+const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
+
+// Apps Script configuration
 const DEV_TOKEN = "YOUR-DEV-TOKEN";
 const LOGIN_CUSTOMER_ID = "YOUR-MCC-CUSTOMER-ID";
+
+// Ads Script configuration
+const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 
 // Date ranges to include on the list of bidding targets
 // https://developers.google.com/google-ads/api/docs/query/date-ranges#predefined_date_range
@@ -212,9 +218,9 @@ function getCustomerHeaders(){
  * Inserts a sheet and initializes the headers
  */
 function insertSheet(sheetName, headers) {
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  let sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
   if(!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(sheetName);
+    sheet = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet(sheetName);
   }
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -235,7 +241,7 @@ function initializeSheets() {
  * @throws exception if sheet is not found
  */
 function getSpreadsheet(sheetName) {
-  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  let sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
   if(!sheet) {
     throw new Error(`Sheet ${sheetName} cannot be found. Please initialize first.`);
   }
@@ -266,9 +272,15 @@ function callApi(url, data) {
   }
 
   let response = UrlFetchApp.fetch(url, options);
+
+  if(response.error){
+    Logger.log(response.error);
+    throw new Error(`API error: ${response.error.message}`);
+  }
+
   let responseContentText = JSON.parse(response.getContentText());
 
-  //searchStream returns the response wrapped in a JSON array
+  // searchStream returns the response wrapped in a JSON array
   if (url.includes('searchStream')) {
     let streamResults = {
       results: []
@@ -284,32 +296,49 @@ function callApi(url, data) {
 }
 
 /**
- * Calls a Google Ads API endpoint for one configured CID/MCC
+ * Calls searchStream via Google Ads API
  */
-function callApiId(endpoint, data, id) {
-  let url = API_ENDPOINT + id + endpoint;
-  let response = callApi(url, data);
-  if(response.results){
-    return response.results;
+function searchStreamApi(cids, data) {
+  let aggregate = [];
+
+  for(cid of cids) {
+    let url = `${API_ENDPOINT}${cid}/googleAds:searchStream`;
+    let response = callApi(url, data);
+    aggregate.push(...response.results);
   }
-  if(response.error){
-    console.log(response.error);
-    throw new Error(`API error: ${response.error.message}`);
-  }
-  return [];
+  return aggregate;
 }
 
 /**
- * Calls a Google Ads API endpoint for all configured CIDs
+ * Calls searchStream for all configured CIDs
  */
-function callApiAll(endpoint, data) {
-  let aggregate = [];
+function searchStream(data) {
   let cids = fetchValuesFromColumn(CID_SHEET, CustomerLabelsIndex.customerId);
-  for(cid of cids) {
-    let results =  callApiId(endpoint, data, cid);
-    aggregate.push(...results);
+
+  if(typeof AdsApp !== 'undefined') {
+    return searchStreamAdsApp(cids, data);
   }
-  return aggregate;
+
+  return searchStreamApi(cids, data);
+}
+
+/**
+ * Calls searchStream via AdsApp
+ */
+function searchStreamAdsApp(cids, data) {
+  let results = [];
+  let childAccounts = AdsManagerApp.accounts().withIds(cids).get();
+
+  while (childAccounts.hasNext()) {
+    let childAccount = childAccounts.next();
+    AdsManagerApp.select(childAccount);
+    let rows = AdsApp.search(data.query);
+    while (rows.hasNext()) {
+      results.push(rows.next());
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -493,7 +522,7 @@ function getPortfolioTargetsByDateRange() {
             bidding_strategy.status = 'ENABLED'
             AND segments.date DURING ${d}`
     };
-    portfolioStrategies[d] = callApiAll("/googleAds:searchStream", data);
+    portfolioStrategies[d] = searchStream(data);
   }
 
   return portfolioStrategies;
@@ -557,7 +586,7 @@ function getCampaignTargetsByDateRange() {
             AND campaign.bidding_strategy_type IN (${StrategyType.targetRoas}, ${StrategyType.targetCPA},
                                                    ${StrategyType.maximizeConversions}, ${StrategyType.maximizeConversionValue})`
     };
-    campaigns[d] = callApiAll("/googleAds:searchStream", data);
+    campaigns[d] = searchStream(data);
   }
   return campaigns;
 }
@@ -620,7 +649,7 @@ function getAdGroupTargetsByDateRange() {
             AND ad_group.effective_target_cpa_source NOT IN (${TargetSource.campaignStrategy})
             AND ad_group.effective_target_roas_source NOT IN (${TargetSource.campaignStrategy})`
     };
-    ad_groups[d] = callApiAll("/googleAds:searchStream", data);
+    ad_groups[d] = searchStream(data);
   }
   return ad_groups;
 }
@@ -736,7 +765,7 @@ function getStrategySimulations() {
           bidding_strategy_simulation.type IN ('${StrategyType.targetRoas}', '${StrategyType.targetCPA}')
           AND bidding_strategy.type IN ('${StrategyType.targetRoas}', '${StrategyType.targetCPA}')`
   };
-  let simulations = callApiAll("/googleAds:searchStream", data);
+  let simulations = searchStream(data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -798,7 +827,7 @@ function getCampaignSimulations() {
     `
   };
 
-  let simulations = callApiAll("/googleAds:searchStream", data);
+  let simulations = searchStream(data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -854,7 +883,7 @@ function getAdGroupSimulations() {
     `
   };
 
-  let simulations = callApiAll("/googleAds:searchStream", data);
+  let simulations = searchStream(data);
   let apiRows = [];
   try {
     for(s of simulations) {
@@ -928,21 +957,20 @@ function loadSimulations() {
 /**
  * Loads all cids under LOGIN_CUSTOMER_ID from API to spreadsheet
  */
-function loadCids(){
+function loadCids() {
   clearSheet(CID_SHEET);
-  if(LOGIN_CUSTOMER_ID) {
-    let customerIdsRows = getAllMccChildren(LOGIN_CUSTOMER_ID);
-    appendRows(CID_SHEET, customerIdsRows);
+  if(!LOGIN_CUSTOMER_ID) {
+    throw new Error("Please update LOGIN_CUSTOMER_ID to fetch customer ids");
   }
-  else {
-    console.log("Please update LOGIN_CUSTOMER_ID to fetch customer ids");
-  }
+
+  let customerIdsRows = getAllMccChildren(LOGIN_CUSTOMER_ID);
+  appendRows(CID_SHEET, customerIdsRows);
 }
 
 /**
  * Retrieves all CIDs under an MCC
  */
-function getAllMccChildren(mcc){
+function getAllMccChildren(mcc) {
   let customerIdsRows = [];
   let data = {
     "query": `
@@ -956,7 +984,7 @@ function getAllMccChildren(mcc){
         WHERE customer_client.status = 'ENABLED'`
   };
 
-  let customers = callApiId("/googleAds:searchStream", data, mcc);
+  let customers = searchStreamApi([mcc], data);
   for(c of customers) {
     let row = [];
     row[CustomerLabelsIndex.customerLevel] = c.customerClient.level;
@@ -1056,4 +1084,18 @@ function appendFormulas() {
       // Copy to rest rows
       .copyTo(sheet.getRange(3, column, lastRow - 2));
   });
+}
+
+/**
+ * Ads Script main function, loads targets and simulations of configured CUSTOMER_IDS
+ */
+function main() {
+  initializeSheets();
+  clearSheet(CID_SHEET);
+  appendRows(CID_SHEET, CUSTOMER_IDS.map(cid => {
+    return new Array(CustomerLabelsIndex.customerId + 1)
+      .with(CustomerLabelsIndex.customerId, cid)
+  }));
+  loadTargets();
+  loadSimulations();
 }

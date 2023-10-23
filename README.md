@@ -8,33 +8,40 @@ This Google Spreadsheet-based tool enables you to:
  * Retrieve the data points of bidding strategies [simulations](https://support.google.com/google-ads/answer/2470105) in one view, so that you can use these data points for target calculation
  * Connect it with your own data
 
-## Deployment
+# Getting started
 
-### 1. Clone the code
+You can install and run the tool in Spreadsheet (requires API key) or in Google 
+Ads (as Ads Script).
+Updating bidding targets is not available in Ads Script version.
 
-Clone this repository using the following command:
+To install you need to clone this repository using the following command:
 ```
 git clone https://professional-services.googlesource.com/solutions/ads-bidding-editor
 ```
 
-### 2. Obtain your Google Ads developer token
+Create a new spreadsheet and make a note of the Spreadsheet ID that can be found
+from the Spreadsheet url ie. https://docs.google.com/spreadsheets/d/**123**/edit
+
+## Option A. Run in Spreadsheet
+
+### Obtain your Google Ads developer token
 
 Follow the steps listed [here](https://developers.google.com/google-ads/api/docs/first-call/dev-token)
 to obtain your Google Ads developer token.
 
 The tool will use this token to pull and push bidding strategies data to Google Ads.
 
-### 3. Deploy the Spreadsheet
+### Deploy the Spreadsheet
 
-Update the **Code.gs** file with your token and account IDs:
+Create a new spreadsheet and make a note of the Spreadsheet ID that can be found 
+from the Spreadsheet url ie. https://docs.google.com/spreadsheets/d/**123**/edit
+
+Update the **Code.gs** file with your configuration:
 ```
+const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
 const DEV_TOKEN = "YOUR-DEV-TOKEN";
 const LOGIN_CUSTOMER_ID = "YOUR-MCC-CUSTOMER-ID";
 ```
-
-You can create the spreadsheet manually or automatically using clasp in your Google Cloud Shell.
-
-**Manually**
 
 In a new spreadsheet open the Apps Script menu Spreadsheet > Extensions > Apps Script
 and in the Editor manually copy the **Code.gs** file.
@@ -47,31 +54,7 @@ GCP Project to another project that has enabled this API.
 
 Lastly, manually copy the content of the **appsscript.json** in the Editor.
 
-**Automatically**
-
-To create the spreadsheet automatically, you need to run the following in your Google Cloud Shell:
-```
-npm install -g @google/clasp
-clasp login --no-localhost
-```
-
-After running clasp login, you will be given a url.
-Open the URL, authorize and copy the "Authorization code" of the last step. Paste the code to the terminal.
-
-Run the following command to create a new Spreadsheet:
-
-```
-clasp create --type sheets --title "Ads bidding targets updater"
-```
-
-Run the following command to upload the Apps Script to your Spreadsheet.
-
-```
-clasp push
-cd ..
-```
-
-## Using the solution
+### Using the solution
 
  1. Open the Spreadsheet, go to the **Ads Bidding** menu > **Initialize Spreadsheet**.
     Note: In case you are upgrading from an earlier version, delete all sheets before running step (1).
@@ -90,7 +73,29 @@ cd ..
  6. Use the **Ads Bidding** menu > **Load Simulations** menu item.
     It will fetch all the bidding strategies simulations and populate the "Simulations" sheet.
 
-### Configurable elements
+## Option B. Run as Google Ads Script
+
+### Create a new Ads Script
+
+Update the **Code.gs** file with your customer ids and spreadsheet id:
+```
+const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
+const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
+```
+
+Create a new Ads Script in MCC level and paste the code from Code.gs file.
+More instructions on how to create a new script can be found
+[here](https://developers.google.com/google-ads/scripts/docs/getting-started#manager-accounts)
+
+### Using the solution
+
+1. Run the script. It will fetch all your current bidding targets in the 
+   "Targets" sheet and all the bidding strategies simulations and populate the 
+   "Simulations" sheet.
+
+2. Open the Spreadsheet, and navigate through the sheets.
+
+## Configurable elements
 
 You can change the sheet names by changing the lines:
 ```
