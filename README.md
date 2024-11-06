@@ -2,22 +2,20 @@
 
 Please note: this is not an officially supported Google product.
 
-This Google Spreadsheet-based tool enables you to:
- * Retrieve all your current bidding targets in a single view, for portfolio and campaign targets of multiple CIDs
- * Update selected targets at bulk, by clicking a button or on schedule
- * Retrieve the data points of bidding strategies [simulations](https://support.google.com/google-ads/answer/2470105) in one view, so that you can use these data points for target calculation
- * Connect it with your own data
+This tool enables you to:
+ * Retrieve all your current bidding targets in a single view, for portfolio and
+ campaign targets of multiple customer ids
+ * Update selected targets at bulk via Google Spreadsheets, by clicking a button
+ or on schedule
+ * Retrieve the data points of bidding [simulations](https://support.google.com/google-ads/answer/2470105)
+ in one Spreadsheet view, so that you can use these data points for target
+ calculation
 
 # Getting started
 
-You can install and run the tool in Spreadsheet (requires API key) or in Google 
-Ads (as Ads Script).
+You can install and run the tool in Spreadsheet (requires Google Ads API key and
+a Google Cloud project) or in Google Ads (as Ads Script).
 Updating bidding targets is not available in Ads Script version.
-
-To install you need to clone this repository using the following command:
-```
-git clone https://professional-services.googlesource.com/solutions/ads-bidding-editor
-```
 
 Create a new spreadsheet and make a note of the Spreadsheet ID that can be found
 from the Spreadsheet url ie. https://docs.google.com/spreadsheets/d/**123**/edit
@@ -33,7 +31,7 @@ The tool will use this token to pull and push bidding strategies data to Google 
 
 ### Deploy the Spreadsheet
 
-Create a new spreadsheet and make a note of the Spreadsheet ID that can be found 
+Create a new spreadsheet and make a note of the Spreadsheet ID that can be found
 from the Spreadsheet url ie. https://docs.google.com/spreadsheets/d/**123**/edit
 
 Update the **Code.gs** file with your configuration:
@@ -89,8 +87,8 @@ More instructions on how to create a new script can be found
 
 ### Using the solution
 
-1. Run the script. It will fetch all your current bidding targets in the 
-   "Targets" sheet and all the bidding strategies simulations and populate the 
+1. Run the script. It will fetch all your current bidding targets in the
+   "Targets" sheet and all the bidding strategies simulations and populate the
    "Simulations" sheet.
 
 2. Open the Spreadsheet, and navigate through the sheets.
