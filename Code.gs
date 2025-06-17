@@ -34,7 +34,7 @@ const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
 const CID_SHEET = "Customers";
 
-const API_ENDPOINT = "https://googleads.googleapis.com/v17/customers/";
+const API_ENDPOINT = "https://googleads.googleapis.com/v20/customers/";
 
 // Calculated formulas on top of simulation data-points to enrich
 const SimulationFormulas = [
