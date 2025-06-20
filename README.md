@@ -64,7 +64,7 @@ Lastly, manually copy the content of the **appsscript.json** in the Editor.
 
  3. Use the **Load Targets** option to fetch all your current bidding targets in the "Targets" sheet.
 
- 4. Update the new ROAS/CPA target column on the spreadsheet. This is the only field that can be changed.
+ 4. Update the **New target** column on the spreadsheet. This is the only field that can be changed.
 
  5. Use the **Update Targets** option to push your new bidding targets to Google Ads.
 

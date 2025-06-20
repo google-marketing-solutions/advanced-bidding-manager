@@ -1,5 +1,5 @@
 /**
- * Copyright 2023 Google LLC
+ * Copyright 2025 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,10 +89,9 @@ const SimulationFormulas = [
 const TargetsLabelsIndex = {
   id: 0,
   name: 1,
-  targetRoas: 2,
-  targetCpa: 3,
-  newTargetRoas: 4,
-  newTargetCpa: 5
+  strategyType: 2,
+  currentTarget: 3,
+  newTarget: 4,
 };
 
 const SimLabelsIndex = {
@@ -155,10 +154,9 @@ function getTargetsHeaders() {
   let headers = [];
   headers[TargetsLabelsIndex.id] = "ID";
   headers[TargetsLabelsIndex.name] = "Name";
-  headers[TargetsLabelsIndex.targetRoas] = "Target ROAS";
-  headers[TargetsLabelsIndex.newTargetRoas] = "New target ROAS";
-  headers[TargetsLabelsIndex.targetCpa] = "Target CPA (micros)";
-  headers[TargetsLabelsIndex.newTargetCpa] = "New target CPA (micros)";
+  headers[TargetsLabelsIndex.strategyType] = "Bidding strategy type";
+  headers[TargetsLabelsIndex.currentTarget] = "Current target";
+  headers[TargetsLabelsIndex.newTarget] = "New target";
 
   // Build the metrics x date ranges columns
   for(let m of TARGETS_METRICS) {
@@ -345,35 +343,7 @@ function searchStreamAdsApp(cids, data) {
  * Creates a bidding strategy mutate operation
  */
 function createBiddingStrategyOperation(row) {
-  if(row[TargetsLabelsIndex.newTargetRoas]) {
-    return {
-      "biddingStrategyOperation": {
-        "updateMask": "targetRoas.targetRoas",
-        "update": {
-          "resourceName": row[TargetsLabelsIndex.id],
-          "targetRoas": {
-            "targetRoas": row[TargetsLabelsIndex.newTargetRoas]
-          }
-        }
-      }
-    };
-  }
-
-  if(row[TargetsLabelsIndex.newTargetCpa]) {
-    return {
-      "biddingStrategyOperation": {
-        "updateMask": "targetCpa.targetCpaMicros",
-        "update": {
-          "resourceName": row[TargetsLabelsIndex.id],
-          "targetCpa": {
-            "targetCpaMicros": row[TargetsLabelsIndex.newTargetCpa]
-          }
-        }
-      }
-    };
-  }
-
-  throw new Error(`Invalid bidding strategy operation: ${row}`);
+  return {"biddingStrategyOperation": createBiddingOperation(row)};
 }
 
 /**
@@ -381,34 +351,56 @@ function createBiddingStrategyOperation(row) {
  * https://developers.google.com/google-ads/api/rest/reference/rest/v12/Campaign
  */
 function createCampaignOperation(row) {
-  if(row[TargetsLabelsIndex.newTargetRoas]) {
+  return {"campaignOperation": createBiddingOperation(row)};
+}
+
+/**
+ * Creates the payload for bidding mutations for campaigns and bidding strategies.
+ */
+function createBiddingOperation(row) {
+  if(row[TargetsLabelsIndex.strategyType] == StrategyType.maximizeConversionValue) {
     return {
-      "campaignOperation": {
-        "updateMask": "maximizeConversionValue.targetRoas",
-        "update": {
-          "resourceName": row[TargetsLabelsIndex.id],
-          "maximizeConversionValue": {
-            "targetRoas": row[TargetsLabelsIndex.newTargetRoas]
-          }
+      "updateMask": "maximizeConversionValue.targetRoas",
+      "update": {
+        "resourceName": row[TargetsLabelsIndex.id],
+        "maximizeConversionValue": {
+          "targetRoas": row[TargetsLabelsIndex.newTarget]
         }
       }
     };
-  }
-  if(row[TargetsLabelsIndex.newTargetCpa]) {
+  } else if(row[TargetsLabelsIndex.strategyType] == StrategyType.maximizeConversions) {
     return {
-      "campaignOperation": {
-        "updateMask": "maximizeConversions.targetCpaMicros",
-        "update": {
-          "resourceName": row[TargetsLabelsIndex.id],
-          "maximizeConversions": {
-            "targetCpaMicros": row[TargetsLabelsIndex.newTargetCpa]
-          }
+      "updateMask": "maximizeConversions.targetCpaMicros",
+      "update": {
+        "resourceName": row[TargetsLabelsIndex.id],
+        "maximizeConversions": {
+          "targetCpaMicros": row[TargetsLabelsIndex.newTarget]
+        }
+      }
+    };
+  } else if(row[TargetsLabelsIndex.strategyType] == StrategyType.targetRoas) {
+    return {
+      "updateMask": "targetRoas.targetRoas",
+      "update": {
+        "resourceName": row[TargetsLabelsIndex.id],
+        "targetRoas": {
+          "targetRoas": row[TargetsLabelsIndex.newTarget]
+        }
+      }
+    };
+  } else if(row[TargetsLabelsIndex.strategyType] == StrategyType.targetCPA) {
+    return {
+      "updateMask": "targetCpa.targetCpaMicros",
+      "update": {
+        "resourceName": row[TargetsLabelsIndex.id],
+        "targetCpa": {
+          "targetCpaMicros": row[TargetsLabelsIndex.newTarget]
         }
       }
     };
   }
 
-  throw new Error(`Invalid campaign operation: ${row}`);
+  throw new Error(`Invalid strategy type: ${row}`);
 }
 
 /**
@@ -416,24 +408,25 @@ function createCampaignOperation(row) {
  * https://developers.google.com/google-ads/api/rest/reference/rest/v13/customers.adGroups/mutate
  */
 function createAdGroupOperation(row) {
-  if (row[TargetsLabelsIndex.newTargetRoas]) {
+  if ([StrategyType.targetRoas, StrategyType.maximizeConversionValue].includes(
+    row[TargetsLabelsIndex.strategyType])) {
     return {
       "adGroupOperation": {
         "updateMask": "targetRoas",
         "update": {
           "resourceName": row[TargetsLabelsIndex.id],
-          "targetRoas": row[TargetsLabelsIndex.newTargetRoas]
+          "targetRoas": row[TargetsLabelsIndex.newTarget]
         }
       }
     };
-  }
-  if (row[TargetsLabelsIndex.newTargetCpa]) {
+  } else if ([StrategyType.targetCPA, StrategyType.maximizeConversions].includes(
+    row[TargetsLabelsIndex.strategyType])) {
     return {
       "adGroupOperation": {
         "updateMask": "targetCpaMicros",
         "update": {
           "resourceName": row[TargetsLabelsIndex.id],
-          "targetCpaMicros": row[TargetsLabelsIndex.newTargetCpa]
+          "targetCpaMicros": row[TargetsLabelsIndex.newTarget]
         }
       }
     };
@@ -450,13 +443,8 @@ function updateTargets() {
 
   // Update only the rows that contain a changed ROAS or CPA target
   let toUpdate = editData.filter((r) => {
-      if(r[TargetsLabelsIndex.newTargetRoas] != r[TargetsLabelsIndex.targetRoas]) {
-          if(r[TargetsLabelsIndex.newTargetRoas] != "") {
-              return true;
-          }
-      }
-      if(r[TargetsLabelsIndex.newTargetCpa] != r[TargetsLabelsIndex.targetCpa]) {
-        return r[TargetsLabelsIndex.newTargetCpa] != "";
+      if(r[TargetsLabelsIndex.newTarget] != r[TargetsLabelsIndex.currentTarget]) {
+        return r[TargetsLabelsIndex.newTarget] != "";
       }
       return false;
   });
@@ -507,8 +495,11 @@ function getAllTargets() {
 function getPortfolioTargetsByDateRange() {
   let columns = [
     "bidding_strategy.name",
+    "bidding_strategy.type",
     "bidding_strategy.target_roas.target_roas",
-    "bidding_strategy.target_cpa.target_cpa_micros"
+    "bidding_strategy.target_cpa.target_cpa_micros",
+    "bidding_strategy.maximize_conversion_value.target_roas",
+    "bidding_strategy.maximize_conversions.target_cpa_micros",
   ];
   let selectGaql = buildGaqlColumns(columns);
 
@@ -520,6 +511,8 @@ function getPortfolioTargetsByDateRange() {
           FROM bidding_strategy
           WHERE
             bidding_strategy.status = 'ENABLED'
+            AND bidding_strategy.type IN (${StrategyType.targetRoas}, ${StrategyType.targetCPA},
+                                        ${StrategyType.maximizeConversions}, ${StrategyType.maximizeConversionValue})
             AND segments.date DURING ${d}`
     };
     portfolioStrategies[d] = searchStream(data);
@@ -541,12 +534,9 @@ function getPortfolioTargets() {
     let row = [];
     row[TargetsLabelsIndex.id] = r.biddingStrategy.resourceName;
     row[TargetsLabelsIndex.name] = r.biddingStrategy.name;
-    row[TargetsLabelsIndex.targetRoas] = r.biddingStrategy.targetRoas
-        && r.biddingStrategy.targetRoas.targetRoas;
-    row[TargetsLabelsIndex.targetCpa] = r.biddingStrategy.targetCpa
-        && r.biddingStrategy.targetCpa.targetCpaMicros;
-    row[TargetsLabelsIndex.newTargetRoas] = "";
-    row[TargetsLabelsIndex.newTargetCpa] = "";
+    row[TargetsLabelsIndex.strategyType] = r.biddingStrategy.type;
+    row[TargetsLabelsIndex.currentTarget] = getTargetFromType(r.biddingStrategy.type, r.biddingStrategy);
+    row[TargetsLabelsIndex.newTarget] = "";
 
     for(let m of TARGETS_METRICS) {
       for(let d of DATE_RANGES) {
@@ -569,8 +559,11 @@ function getPortfolioTargets() {
 function getCampaignTargetsByDateRange() {
   let columns = [
     "campaign.name",
+    "campaign.bidding_strategy_type",
+    "campaign.target_roas.target_roas",
+    "campaign.target_cpa.target_cpa_micros",
     "campaign.maximize_conversion_value.target_roas",
-    "campaign.maximize_conversions.target_cpa_micros"
+    "campaign.maximize_conversions.target_cpa_micros",
   ];
   let selectGaql = buildGaqlColumns(columns);
   let campaigns = [];
@@ -600,17 +593,14 @@ function getCampaignTargets() {
 
   // Keep only CPA and ROAS strategies
   let rows = campaigns[DATE_RANGES[0]].filter((r) => {
-    return (r.campaign.maximizeConversionValue || r.campaign.maximizeConversions);
+    return (r.campaign.maximizeConversionValue || r.campaign.maximizeConversions || r.campaign.targetRoas);
   }).map((r) => {
     let row = [];
     row[TargetsLabelsIndex.id] = r.campaign.resourceName;
     row[TargetsLabelsIndex.name] = r.campaign.name;
-    row[TargetsLabelsIndex.targetRoas] = r.campaign.maximizeConversionValue
-        && r.campaign.maximizeConversionValue.targetRoas;
-    row[TargetsLabelsIndex.targetCpa] = r.campaign.maximizeConversions
-        && r.campaign.maximizeConversions.targetCpaMicros;
-    row[TargetsLabelsIndex.newTargetRoas] = "";
-    row[TargetsLabelsIndex.newTargetCpa] = "";
+    row[TargetsLabelsIndex.strategyType] = r.campaign.biddingStrategyType;
+    row[TargetsLabelsIndex.currentTarget] = getTargetFromType(r.campaign.biddingStrategyType, r.campaign);
+    row[TargetsLabelsIndex.newTarget] = "";
 
     for(let m of TARGETS_METRICS) {
       for(let d of DATE_RANGES) {
@@ -628,13 +618,33 @@ function getCampaignTargets() {
 }
 
 /**
- * Returns array containing ad group bidding targets segmented by date range
+ * Gets the bidding target (roas/cpa) from a campaign or bidding strategy object.
+ * @param type Bidding strategy type
+ * @param entity Campaign or bidding strategy object
  */
-function getAdGroupTargetsByDateRange() {
+function getTargetFromType(type, entity) {
+  if(type == StrategyType.targetRoas) {
+    return entity.targetRoas.targetRoas;
+  } else if(type == StrategyType.targetCPA) {
+    return entity.targetCpa.targetCpaMicros;
+  } else if(type == StrategyType.maximizeConversionValue) {
+    return entity.maximizeConversionValue.targetRoas;
+  } else if(type == StrategyType.maximizeConversions) {
+    return entity.maximizeConversions.targetCpaMicros;
+  }
+
+  throw new Error(`Cannot read ${entity.name} with ${type}`);
+}
+
+/**
+ * Returns array containing ad group bidding targets segmented by date range
+ * @param targetField Field containing the target (ad_group.target_roas or ad_group.target_cpa_micros)
+ */
+function getAdGroupTargetsByDateRange(targetField="ad_group.target_roas") {
   let columns = [
     "ad_group.name",
-    "ad_group.target_roas",
-    "ad_group.target_cpa_micros"
+    "campaign.bidding_strategy_type",
+    targetField
   ];
   let selectGaql = buildGaqlColumns(columns);
   let ad_groups = [];
@@ -645,9 +655,10 @@ function getAdGroupTargetsByDateRange() {
           FROM ad_group
           WHERE
             ad_group.status != 'REMOVED'
+            AND ${targetField} > 0
             AND segments.date DURING ${d}
-            AND ad_group.effective_target_cpa_source NOT IN (${TargetSource.campaignStrategy})
-            AND ad_group.effective_target_roas_source NOT IN (${TargetSource.campaignStrategy})`
+            AND campaign.bidding_strategy_type IN (${StrategyType.targetRoas}, ${StrategyType.targetCPA},
+                                                   ${StrategyType.maximizeConversions}, ${StrategyType.maximizeConversionValue})`
     };
     ad_groups[d] = searchStream(data);
   }
@@ -659,19 +670,26 @@ function getAdGroupTargetsByDateRange() {
  * https://developers.google.com/google-ads/api/fields/v12/ad_group_query_builder
  */
 function getAdGroupTargets() {
-  let ad_groups = getAdGroupTargetsByDateRange();
+  let ad_groups_roas = getAdGroupTargetsByDateRange("ad_group.target_roas");
+  let ad_groups_cpa = getAdGroupTargetsByDateRange("ad_group.target_cpa_micros");
+  let ad_groups = [];
+
+  for(let d of DATE_RANGES) {
+    ad_groups[d] = ad_groups_roas[d].concat(ad_groups_cpa[d]);
+  }
 
   // Keep only ad group level CPA and ROAS strategies
-  let rows = ad_groups[DATE_RANGES[0]].filter((r) => {
-    return (r.adGroup.targetRoas > 0 || r.adGroup.targetCpaMicros > 0);
-  }).map((r) => {
+  let rows = ad_groups[DATE_RANGES[0]].map((r) => {
     let row = [];
     row[TargetsLabelsIndex.id] = r.adGroup.resourceName;
     row[TargetsLabelsIndex.name] = r.adGroup.name;
-    row[TargetsLabelsIndex.targetRoas] = r.adGroup.targetRoas;
-    row[TargetsLabelsIndex.targetCpa] = r.adGroup.targetCpaMicros;
-    row[TargetsLabelsIndex.newTargetRoas] = "";
-    row[TargetsLabelsIndex.newTargetCpa] = "";
+    row[TargetsLabelsIndex.strategyType] = r.campaign.biddingStrategyType;
+    if([StrategyType.targetRoas, StrategyType.maximizeConversionValue].includes(r.campaign.biddingStrategyType)) {
+      row[TargetsLabelsIndex.currentTarget] = r.adGroup.targetRoas;
+    } else if([StrategyType.targetCPA, StrategyType.maximizeConversions].includes(r.campaign.biddingStrategyType)) {
+      row[TargetsLabelsIndex.currentTarget] = r.adGroup.targetCpaMicros;
+    }
+    row[TargetsLabelsIndex.newTarget] = "";
 
     for(let m of TARGETS_METRICS) {
       for(let d of DATE_RANGES) {
