@@ -34,7 +34,7 @@ The tool will use this token to pull and push bidding strategies data to Google 
 Create a new spreadsheet and make a note of the Spreadsheet ID that can be found
 from the Spreadsheet url ie. https://docs.google.com/spreadsheets/d/**123**/edit
 
-Update the **Code.gs** file with your configuration:
+Update the **dist/Code.gs** file with your configuration:
 ```
 const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
 const DEV_TOKEN = "YOUR-DEV-TOKEN";
@@ -42,7 +42,7 @@ const LOGIN_CUSTOMER_ID = "YOUR-MCC-CUSTOMER-ID";
 ```
 
 In a new spreadsheet open the Apps Script menu Spreadsheet > Extensions > Apps Script
-and in the Editor manually copy the **Code.gs** file.
+and in the Editor manually copy the **dist/Code.gs** file.
 
 In the project settings, below the Editor menu:
 
@@ -75,13 +75,13 @@ Lastly, manually copy the content of the **appsscript.json** in the Editor.
 
 ### Create a new Ads Script
 
-Update the **Code.gs** file with your customer ids and spreadsheet id:
+Update the **dist/Code.gs** file with your customer ids and spreadsheet id:
 ```
 const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
 const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 ```
 
-Create a new Ads Script in MCC level and paste the code from Code.gs file.
+Create a new Ads Script in MCC level and paste the code from dist/Code.gs file.
 More instructions on how to create a new script can be found
 [here](https://developers.google.com/google-ads/scripts/docs/getting-started#manager-accounts)
 
