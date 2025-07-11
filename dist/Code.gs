@@ -383,6 +383,7 @@ class SimulationsSheet {
           campaign_simulation.target_cpa_point_list.points
         FROM campaign_simulation
         WHERE campaign_simulation.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
+          AND campaign_simulation.modification_method != "SCALING"
           AND campaign.bidding_strategy_type IN ('${StrategyType.MAXIMIZE_CONVERSION_VALUE}', '${StrategyType.MAXIMIZE_CONVERSIONS}',
           '${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
           AND campaign.bidding_strategy IS NULL
