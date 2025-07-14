@@ -193,6 +193,41 @@ class GoogleAdsClient {
         }
         return results;
     }
+    mutateTargets(cid, mutateOperations) {
+        if (typeof AdsApp !== 'undefined') {
+            return this.mutateTargetsAdsApp(cid, mutateOperations);
+        }
+        const url = API_ENDPOINT + cid + '/googleAds:mutate';
+        this.callApi(url, { mutateOperations });
+    }
+    mutateTargetsAdsApp(cid, operations) {
+        const formattedCid = this.formatCid(cid);
+        const accountIterator = AdsManagerApp.accounts()
+            .withIds([formattedCid])
+            .get();
+        if (!accountIterator.hasNext()) {
+            throw new Error(`Google Ads account with CID ${formattedCid} not found.`);
+        }
+        const account = accountIterator.next();
+        AdsManagerApp.select(account);
+        try {
+            const mutateResults = AdsApp.mutateAll(operations);
+            for (const mutateResult of mutateResults) {
+                if (!mutateResult.isSuccessful()) {
+                    Logger.log(mutateResult.getErrorMessages().join('\n'));
+                }
+            }
+        }
+        catch (e) {
+            Logger.log(`Failed to execute operation for account ${cid}. Error: ${e}`);
+        }
+    }
+    formatCid(cid) {
+        if (cid.length !== 10 || !/^\d+$/.test(cid)) {
+            throw new Error(`Invalid CID '${cid}'. Expected a 10-digit string.`);
+        }
+        return [cid.slice(0, 3), cid.slice(3, 6), cid.slice(6, 10)].join('-');
+    }
     callApi(url, data) {
         const headers = {};
         const token = ScriptApp.getOAuthToken();
@@ -547,7 +582,6 @@ class TargetsSheet {
         });
         const cids = googleAdsClient.getCids();
         for (const cid of cids) {
-            const url = API_ENDPOINT + cid + '/googleAds:mutate';
             const biddingStrategyOperations = toUpdate
                 .filter(r => {
                 return (r[TargetsLabelsIndex.ID].indexOf(cid + '/biddingStrategies') > -1);
@@ -563,15 +597,13 @@ class TargetsSheet {
                 return r[TargetsLabelsIndex.ID].indexOf(cid + '/adGroups') > -1;
             })
                 .map(r => this.createAdGroupOperation(r));
-            const data = {
-                mutateOperations: [
-                    ...biddingStrategyOperations,
-                    ...campaignOperations,
-                    ...adGroupOperations,
-                ],
-            };
-            if (data.mutateOperations.length > 0) {
-                googleAdsClient.callApi(url, data);
+            const mutateOperations = [
+                ...biddingStrategyOperations,
+                ...campaignOperations,
+                ...adGroupOperations,
+            ];
+            if (mutateOperations.length > 0) {
+                googleAdsClient.mutateTargets(cid, mutateOperations);
             }
         }
         this.load(googleAdsClient);
@@ -598,10 +630,10 @@ class TargetsSheet {
         return metricName.replace(/_/g, ' ');
     }
     getAllTargets(googleAdsClient) {
-        const allTargets = this.getPortfolioTargets(googleAdsClient);
+        const portfolioTargets = this.getPortfolioTargets(googleAdsClient);
         const campaignTargets = this.getCampaignTargets(googleAdsClient);
         const adGroupTargets = this.getAdGroupTargets(googleAdsClient);
-        return [...allTargets, ...campaignTargets, ...adGroupTargets];
+        return [...portfolioTargets, ...campaignTargets, ...adGroupTargets];
     }
     getPortfolioTargetsByDateRange(googleAdsClient) {
         const columns = [

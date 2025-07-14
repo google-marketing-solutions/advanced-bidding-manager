@@ -17,7 +17,6 @@
 import {SpreadsheetService} from './spreadsheet_service';
 import {
   AdGroupResponse,
-  API_ENDPOINT,
   BiddingStrategyResponse,
   CampaignResponse,
   GoogleAdsClient,
@@ -45,59 +44,6 @@ export enum TargetsLabelsIndex {
   STRATEGY_TYPE = 2,
   CURRENT_TARGET = 3,
   NEW_TARGET = 4,
-}
-
-interface BiddingStrategyOperation {
-  biddingStrategyOperation: {
-    updateMask: string;
-    update: {
-      resourceName: string;
-      maximizeConversionValue?: {
-        targetRoas: number;
-      };
-      maximizeConversions?: {
-        targetCpaMicros: number;
-      };
-      targetRoas?: {
-        targetRoas: number;
-      };
-      targetCpa?: {
-        targetCpaMicros: number;
-      };
-    };
-  };
-}
-
-interface CampaignOperation {
-  campaignOperation: {
-    updateMask: string;
-    update: {
-      resourceName: string;
-      maximizeConversionValue?: {
-        targetRoas: number;
-      };
-      maximizeConversions?: {
-        targetCpaMicros: number;
-      };
-      targetRoas?: {
-        targetRoas: number;
-      };
-      targetCpa?: {
-        targetCpaMicros: number;
-      };
-    };
-  };
-}
-
-interface AdGroupOperation {
-  adGroupOperation: {
-    updateMask: string;
-    update: {
-      resourceName: string;
-      targetRoas?: number;
-      targetCpaMicros?: number;
-    };
-  };
 }
 
 /**
@@ -154,8 +100,6 @@ export class TargetsSheet {
 
     const cids = googleAdsClient.getCids();
     for (const cid of cids) {
-      const url = API_ENDPOINT + cid + '/googleAds:mutate';
-
       // Populate update operations by first filtering on the CID
       const biddingStrategyOperations = toUpdate
         .filter(r => {
@@ -177,16 +121,14 @@ export class TargetsSheet {
         })
         .map(r => this.createAdGroupOperation(r));
 
-      const data = {
-        mutateOperations: [
-          ...biddingStrategyOperations,
-          ...campaignOperations,
-          ...adGroupOperations,
-        ],
-      };
+      const mutateOperations = [
+        ...biddingStrategyOperations,
+        ...campaignOperations,
+        ...adGroupOperations,
+      ];
 
-      if (data.mutateOperations.length > 0) {
-        googleAdsClient.callApi(url, data);
+      if (mutateOperations.length > 0) {
+        googleAdsClient.mutateTargets(cid, mutateOperations);
       }
     }
 
@@ -223,11 +165,11 @@ export class TargetsSheet {
   private getAllTargets(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number | ''>> {
-    const allTargets = this.getPortfolioTargets(googleAdsClient);
+    const portfolioTargets = this.getPortfolioTargets(googleAdsClient);
     const campaignTargets = this.getCampaignTargets(googleAdsClient);
     const adGroupTargets = this.getAdGroupTargets(googleAdsClient);
 
-    return [...allTargets, ...campaignTargets, ...adGroupTargets];
+    return [...portfolioTargets, ...campaignTargets, ...adGroupTargets];
   }
 
   private getPortfolioTargetsByDateRange(googleAdsClient: GoogleAdsClient): {
@@ -511,13 +453,13 @@ export class TargetsSheet {
 
   private createBiddingStrategyOperation(
     row: Array<string | number>
-  ): BiddingStrategyOperation {
+  ): GoogleAds.BiddingStrategyOperation {
     return {biddingStrategyOperation: this.createBiddingOperation(row)};
   }
 
   private createCampaignOperation(
     row: Array<string | number>
-  ): CampaignOperation {
+  ): GoogleAds.CampaignOperation {
     return {campaignOperation: this.createBiddingOperation(row)};
   }
 
@@ -598,7 +540,7 @@ export class TargetsSheet {
 
   private createAdGroupOperation(
     row: Array<string | number>
-  ): AdGroupOperation {
+  ): GoogleAds.AdGroupOperation {
     if (
       [
         StrategyType.TARGET_ROAS,

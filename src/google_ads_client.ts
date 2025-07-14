@@ -315,6 +315,59 @@ export class GoogleAdsClient {
     return results;
   }
 
+  mutateTargets(
+    cid: string,
+    mutateOperations: GoogleAds.MutateOperation[]
+  ): void {
+    if (typeof AdsApp !== 'undefined') {
+      return this.mutateTargetsAdsApp(cid, mutateOperations);
+    }
+
+    const url = API_ENDPOINT + cid + '/googleAds:mutate';
+    this.callApi(url, {mutateOperations});
+  }
+
+  mutateTargetsAdsApp(
+    cid: string,
+    operations: GoogleAds.MutateOperation[]
+  ): void {
+    const formattedCid = this.formatCid(cid);
+    const accountIterator = AdsManagerApp.accounts()
+      .withIds([formattedCid])
+      .get();
+    if (!accountIterator.hasNext()) {
+      throw new Error(`Google Ads account with CID ${formattedCid} not found.`);
+    }
+
+    const account = accountIterator.next();
+    AdsManagerApp.select(account);
+
+    try {
+      const mutateResults: GoogleAds.MutateResult[] =
+        AdsApp.mutateAll(operations);
+      for (const mutateResult of mutateResults) {
+        if (!mutateResult.isSuccessful()) {
+          Logger.log(mutateResult.getErrorMessages().join('\n'));
+        }
+      }
+    } catch (e: unknown) {
+      Logger.log(`Failed to execute operation for account ${cid}. Error: ${e}`);
+    }
+  }
+
+  /**
+   * Formats a 10-digit customer ID into XXX-XXX-XXXX format.
+   * @param cid The customer ID to format.
+   * @return The formatted customer ID.
+   * @throws An error if the CID is not 10 digits long or contains non-digits.
+   */
+  private formatCid(cid: string): string {
+    if (cid.length !== 10 || !/^\d+$/.test(cid)) {
+      throw new Error(`Invalid CID '${cid}'. Expected a 10-digit string.`);
+    }
+    return [cid.slice(0, 3), cid.slice(3, 6), cid.slice(6, 10)].join('-');
+  }
+
   /**
    * Calls Ads API (POST).
    * @param url The API endpoint URL.

@@ -110,7 +110,7 @@ export class CidSheet {
   private mapCustomerToRow(
     customer: CustomerClientResponse,
     mcc: string
-  ): Array<(string | number | boolean)> {
+  ): Array<string | number | boolean> {
     return [
       customer.customerClient.descriptiveName, // CUSTOMER_NAME
       customer.customerClient.level, // CUSTOMER_LEVEL
