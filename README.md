@@ -27,6 +27,7 @@ This tool comes in two versions:
      * No Ads API token nor GCP requirements
      * Functionalities:
        * Load Bidding Targets
+       * Update Bidding Targets
        * Load Bidding Simulations
 
 **Step1:** For both version start by [creating a new spreadsheet](https://docs.google.com/spreadsheets/create)
@@ -125,13 +126,31 @@ const SPREADSHEET_ID = "YOUR-SPREADSHEET-ID-HERE";
 const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 ```
 
-### Using the solution
+### Using the solution to Load Bidding Targets and Simulations
+
+By default the script will load Bidding Targets and Simulations with each run.
 
 1. Run the script. It will fetch all your current bidding targets in the
    "Targets" sheet and all the bidding strategies simulations and populate the
    "Simulations" sheet.
 
 2. Open the Spreadsheet, and navigate through the sheets.
+
+### Using the solution to Upload New Bidding Targets
+
+1. Change the bidding targets by setting new values in the Spreadsheet column 'New target'.
+
+2. Create a new Google Ads Script (re-do step2 and step3 from above).
+
+3. At the bottom of the script, replace the main function with the following code:
+
+```
+function main() {
+    updateTargets();
+}
+```
+
+4. Run the script. It will push your new bidding targets to Google Ads.
 
 ## Configurable elements
 
