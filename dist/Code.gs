@@ -257,7 +257,9 @@ class GoogleAdsClient {
                 results: [],
             };
             for (const r of responseContentText) {
-                streamResults.results.push(...r.results);
+                if ("results" in r) {
+                    streamResults.results.push(...r.results);
+                }
             }
             return streamResults;
         }
