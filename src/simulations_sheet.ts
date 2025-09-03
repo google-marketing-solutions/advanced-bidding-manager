@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-import {SpreadsheetService} from './spreadsheet_service';
 import {
-  AdGroupSimulationResponse,
-  BiddingStrategySimulationResponse,
+  BaseSimulation,
   CampaignSimulationResponse,
   GoogleAdsClient,
-  BaseSimulation,
   StrategyType,
 } from './google_ads_client';
+import {SpreadsheetService} from './spreadsheet_service';
 
 enum SimLabelsIndex {
   CUSTOMER_NAME = 0, // Column A
@@ -164,25 +162,8 @@ export class SimulationsSheet {
   private getStrategySimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const query = `
-          SELECT
-            bidding_strategy_simulation.bidding_strategy_id,
-            bidding_strategy_simulation.type,
-            bidding_strategy.type,
-            bidding_strategy_simulation.start_date,
-            bidding_strategy_simulation.end_date,
-            bidding_strategy_simulation.target_roas_point_list.points,
-            bidding_strategy_simulation.target_cpa_point_list.points,
-            bidding_strategy.name,
-            bidding_strategy.target_roas.target_roas,
-            bidding_strategy.target_cpa.target_cpa_micros,
-            customer.descriptive_name
-          FROM bidding_strategy_simulation
-          WHERE bidding_strategy_simulation.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
-            AND bidding_strategy.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')`;
-
     const simulations =
-      googleAdsClient.searchStream<BiddingStrategySimulationResponse>(query);
+      googleAdsClient.fetchBiddingStrategySimulations();
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.biddingStrategySimulation;
@@ -216,31 +197,8 @@ export class SimulationsSheet {
   private getCampaignSimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const query = `
-        SELECT
-          customer.descriptive_name,
-          campaign.name,
-          campaign_simulation.type,
-          campaign.bidding_strategy_type,
-          campaign.maximize_conversion_value.target_roas,
-          campaign.maximize_conversions.target_cpa_micros,
-          campaign.target_cpa.target_cpa_micros,
-          campaign.target_roas.target_roas,
-          campaign_simulation.campaign_id,
-          campaign_simulation.start_date,
-          campaign_simulation.end_date,
-          campaign_simulation.target_roas_point_list.points,
-          campaign_simulation.target_cpa_point_list.points
-        FROM campaign_simulation
-        WHERE campaign_simulation.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
-          AND campaign_simulation.modification_method != "SCALING"
-          AND campaign.bidding_strategy_type IN ('${StrategyType.MAXIMIZE_CONVERSION_VALUE}', '${StrategyType.MAXIMIZE_CONVERSIONS}',
-          '${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
-          AND campaign.bidding_strategy IS NULL
-      `;
-
     const simulations =
-      googleAdsClient.searchStream<CampaignSimulationResponse>(query);
+      googleAdsClient.fetchCampaignSimulations();
     const apiRows: Array<Array<string | number>> = [];
     try {
       for (const s of simulations) {
@@ -266,24 +224,8 @@ export class SimulationsSheet {
   private getAdGroupSimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const query = `
-        SELECT
-          customer.descriptive_name,
-          ad_group.name,
-          ad_group_simulation.type,
-          ad_group.effective_target_cpa_micros,
-          ad_group.effective_target_roas,
-          ad_group_simulation.ad_group_id,
-          ad_group_simulation.start_date,
-          ad_group_simulation.end_date,
-          ad_group_simulation.target_roas_point_list.points,
-          ad_group_simulation.target_cpa_point_list.points
-        FROM ad_group_simulation
-        WHERE ad_group_simulation.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
-      `;
-
     const simulations =
-      googleAdsClient.searchStream<AdGroupSimulationResponse>(query);
+      googleAdsClient.fetchAdGroupSimulations();
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.adGroupSimulation;
