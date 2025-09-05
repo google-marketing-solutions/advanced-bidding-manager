@@ -186,6 +186,7 @@ export interface CampaignSimulationResponse extends BaseSimulationResponse {
     campaignId: string;
   };
   campaign: {
+    resourceName: string;
     name: string;
     biddingStrategyType: StrategyType;
     maximizeConversionValue?: {
@@ -211,6 +212,7 @@ export interface AdGroupSimulationResponse extends BaseSimulationResponse {
     adGroupId: string;
   };
   adGroup: {
+    resourceName: string;
     name: string;
     effectiveTargetCpaMicros?: number;
     effectiveTargetRoas?: number;
@@ -226,6 +228,7 @@ export interface BiddingStrategySimulationResponse
     biddingStrategyId: string;
   };
   biddingStrategy: {
+    resourceName: string;
     type: StrategyType;
     name: string;
     targetRoas?: {
@@ -429,6 +432,7 @@ export class GoogleAdsClient {
   fetchBiddingStrategySimulations(): BiddingStrategySimulationResponse[] {
     const query = `
           SELECT
+            bidding_strategy.resource_name,
             bidding_strategy_simulation.bidding_strategy_id,
             bidding_strategy_simulation.type,
             bidding_strategy.type,
@@ -454,6 +458,7 @@ export class GoogleAdsClient {
     const query = `
         SELECT
           customer.descriptive_name,
+          campaign.resource_name,
           campaign.name,
           campaign_simulation.type,
           campaign.bidding_strategy_type,
@@ -484,6 +489,7 @@ export class GoogleAdsClient {
     const query = `
         SELECT
           customer.descriptive_name,
+          ad_group.resource_name,
           ad_group.name,
           ad_group_simulation.type,
           ad_group.effective_target_cpa_micros,
@@ -498,9 +504,53 @@ export class GoogleAdsClient {
       `;
     return this.searchStream<AdGroupSimulationResponse>(query);
   }
+
+  /**
+   * Gets the target value from a Google Ads entity based on its strategy type.
+   * @param strategyType The bidding strategy type.
+   * @param entity The Google Ads entity (Campaign, Ad Group, or Bidding Strategy).
+   * @return The target value, or undefined if not found.
+   */
+  getEntityTarget(
+    strategyType: StrategyType,
+    entity:
+      | CampaignResponse['campaign']
+      | AdGroupResponse['adGroup']
+      | BiddingStrategyResponse['biddingStrategy']
+  ): number | undefined {
+    if (
+      strategyType === StrategyType.TARGET_ROAS ||
+      strategyType === StrategyType.MAXIMIZE_CONVERSION_VALUE
+    ) {
+      if ('maximizeConversionValue' in entity && entity.maximizeConversionValue) {
+        return entity.maximizeConversionValue.targetRoas;
+      }
+      if ('targetRoas' in entity && entity.targetRoas) {
+        // The type of targetRoas can be a number or an object
+        return typeof entity.targetRoas === 'number'
+          ? entity.targetRoas
+          : entity.targetRoas.targetRoas;
+      }
+      if ('effectiveTargetRoas' in entity && entity.effectiveTargetRoas) {
+        return entity.effectiveTargetRoas;
+      }
+    } else if (
+      strategyType === StrategyType.TARGET_CPA ||
+      strategyType === StrategyType.MAXIMIZE_CONVERSIONS
+    ) {
+      if ('maximizeConversions' in entity && entity.maximizeConversions) {
+        return entity.maximizeConversions.targetCpaMicros / 1e6;
+      }
+      if ('targetCpa' in entity && entity.targetCpa) {
+        return entity.targetCpa.targetCpaMicros / 1e6;
+      }
+      if ('effectiveTargetCpaMicros' in entity && entity.effectiveTargetCpaMicros) {
+        return entity.effectiveTargetCpaMicros / 1e6;
+      }
+    }
+    return undefined;
+  }
 }
-
-
 
 interface ApiResponse<T> {
   error?: {

@@ -89,10 +89,7 @@ describe('SimulationsSheet', () => {
   });
 
   describe('load', () => {
-    it('should clear the sheet, fetch all simulations, and populate the sheet with data and formulas', () => {
-      // Arrange: Set up mock data for API responses
-      const mockStrategySim: BiddingStrategySimulationResponse[] = [
-        {
+    const mockStrategySim: BiddingStrategySimulationResponse[] = [{
           biddingStrategySimulation: {
             biddingStrategyId: '123',
             type: StrategyType.TARGET_ROAS,
@@ -113,6 +110,7 @@ describe('SimulationsSheet', () => {
             },
           },
           biddingStrategy: {
+            resourceName: 'customers/1/biddingStrategies/123',
             type: StrategyType.TARGET_ROAS,
             name: 'Test Strategy',
             targetRoas: {targetRoas: 0.4},
@@ -120,55 +118,7 @@ describe('SimulationsSheet', () => {
           customer: {descriptiveName: 'Test Customer'},
         },
       ];
-
-      // Mock the searchStream method to return different data based on the GAQL query
-      mockGoogleAdsClient.searchStream.mockImplementation((query: string) => {
-        if (query.includes('FROM bidding_strategy_simulation')) {
-          return mockStrategySim;
-        }
-        // Return empty arrays for other simulation types to keep the test focused
-        if (
-          query.includes('FROM campaign_simulation') ||
-          query.includes('FROM ad_group_simulation')
-        ) {
-          return [];
-        }
-        return [];
-      });
-
-      // Act: Run the method under test
-      simulationsSheet.load(mockGoogleAdsClient);
-
-      // Assert: Verify the outcomes
-      // 1. Sheet is cleared before loading new data
-      expect(mockSpreadsheetService.clearSheet).toHaveBeenCalledWith(
-        SimulationsSheet.SIM_SHEET
-      );
-
-      // 2. API is called for all three simulation types
-      expect(mockGoogleAdsClient.searchStream).toHaveBeenCalledTimes(3);
-
-      // 3. Rows are appended to the sheet
-      expect(mockSpreadsheetService.appendRows).toHaveBeenCalledTimes(1);
-      const [sheetName, appendedRows] =
-        mockSpreadsheetService.appendRows.mock.calls[0];
-      expect(sheetName).toBe(SimulationsSheet.SIM_SHEET);
-      expect(appendedRows.length).toBe(1); // From our mockStrategySim
-
-      const rowData = appendedRows[0];
-      expect(rowData[2]).toBe('123'); // entityId
-      expect(rowData[3]).toBe(StrategyType.TARGET_ROAS); // strategyType
-      expect(rowData[12]).toBe(1); // cost (1000000 / 1e6)
-
-      // 4. Formulas are appended to the sheet
-      expect(mockSheet.getRange).toHaveBeenCalled();
-      expect(mockRange.setFormula).toHaveBeenCalledTimes(8); // 8 formulas
-      expect(mockRange.copyTo).toHaveBeenCalledTimes(8);
-    });
-
-    it('should correctly process and append campaign simulations', () => {
-      // Arrange: Set up mock data for campaign simulation API responses
-      const mockCampaignSim: CampaignSimulationResponse[] = [
+    const mockCampaignSim: CampaignSimulationResponse[] = [
         {
           campaignSimulation: {
             campaignId: '456',
@@ -176,8 +126,7 @@ describe('SimulationsSheet', () => {
             startDate: '2023-02-01',
             endDate: '2023-02-28',
             targetRoasPointList: {
-              points: [
-                {
+              points: [{
                   targetRoas: 0.8,
                   biddableConversions: 20,
                   biddableConversionsValue: 1000,
@@ -190,6 +139,7 @@ describe('SimulationsSheet', () => {
             },
           },
           campaign: {
+            resourceName: 'customers/1/campaigns/456',
             name: 'Test Campaign',
             biddingStrategyType: StrategyType.MAXIMIZE_CONVERSION_VALUE,
             maximizeConversionValue: {targetRoas: 0.7},
@@ -197,68 +147,69 @@ describe('SimulationsSheet', () => {
           customer: {descriptiveName: 'Test Customer'},
         },
       ];
-
-      // Mock the searchStream method to return campaign data
-      mockGoogleAdsClient.searchStream.mockImplementation((query: string) => {
-        if (query.includes('FROM campaign_simulation')) {
-          return mockCampaignSim;
-        }
-        return []; // Return empty for other simulation types
-      });
-
-      // Act
-      simulationsSheet.load(mockGoogleAdsClient);
-
-      // Assert
-      const [, appendedRows] = mockSpreadsheetService.appendRows.mock.calls[0];
-      expect(appendedRows.length).toBe(1);
-
-      const rowData = appendedRows[0];
-      expect(rowData[2]).toBe('456'); // entityId
-      expect(rowData[1]).toBe('Campaign: Test Campaign'); // entityName
-      expect(rowData[5]).toBe(0.7); // currentTarget
-      expect(rowData[8]).toBe(0.8); // simulationTarget
-      expect(rowData[12]).toBe(2); // cost (2000000 / 1e6)
-    });
-
-    it('should correctly process and append ad group simulations', () => {
-      // Arrange: Set up mock data for ad group simulation API responses
-      const mockAdGroupSim: AdGroupSimulationResponse[] = [
+    const mockAdGroupSim: AdGroupSimulationResponse[] = [
         {
           adGroupSimulation: {
             adGroupId: '789',
-            type: StrategyType.TARGET_ROAS,
+            type: StrategyType.TARGET_CPA,
             startDate: '2023-03-01',
             endDate: '2023-03-31',
-            targetRoasPointList: {
+            targetCpaPointList: {
               points: [
                 {
-                  targetRoas: 1.2,
-                  biddableConversions: 30,
-                  biddableConversionsValue: 1500,
-                  clicks: 300,
-                  costMicros: 3000000,
-                  impressions: 30000,
-                  topSlotImpressions: 3000,
+                  targetCpaMicros: 15000000,
+                  biddableConversions: 50,
+                  biddableConversionsValue: 2000,
+                  clicks: 500,
+                  costMicros: 5000000,
+                  impressions: 50000,
+                  topSlotImpressions: 5000,
                 },
               ],
             },
           },
           adGroup: {
+            resourceName: 'customers/1/adGroups/789',
             name: 'Test Ad Group',
-            effectiveTargetRoas: 1.1,
+            effectiveTargetCpaMicros: 12000000,
           },
           customer: {descriptiveName: 'Test Customer'},
         },
       ];
 
-      // Mock the searchStream method to return ad group data
-      mockGoogleAdsClient.searchStream.mockImplementation((query: string) => {
-        if (query.includes('FROM ad_group_simulation')) {
-          return mockAdGroupSim;
-        }
-        return []; // Return empty for other simulation types
-      });
+    it('should correctly process and append bidding strategy simulations', () => {
+      // Arrange
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(mockStrategySim);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.4);
+
+      // Act
+      simulationsSheet.load(mockGoogleAdsClient);
+
+      // Assert
+      expect(mockSpreadsheetService.clearSheet).toHaveBeenCalledWith(
+        SimulationsSheet.SIM_SHEET
+      );
+      const [sheetName, appendedRows] =
+        mockSpreadsheetService.appendRows.mock.calls[0];
+      expect(sheetName).toBe(SimulationsSheet.SIM_SHEET);
+      expect(appendedRows.length).toBe(1);
+
+      const strategyRow = appendedRows[0];
+      expect(strategyRow[2]).toBe('123'); // entityId
+      expect(strategyRow[3]).toBe(StrategyType.TARGET_ROAS); // strategyType
+      expect(strategyRow[5]).toBe(0.4); // currentTarget
+      expect(strategyRow[12]).toBe(1); // cost (1000000 / 1e6)
+    });
+
+    it('should correctly process and append campaign simulations', () => {
+      // Arrange
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue(mockCampaignSim);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
+
+      mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.7);
 
       // Act
       simulationsSheet.load(mockGoogleAdsClient);
@@ -267,13 +218,68 @@ describe('SimulationsSheet', () => {
       const [, appendedRows] = mockSpreadsheetService.appendRows.mock.calls[0];
       expect(appendedRows.length).toBe(1);
 
-      const rowData = appendedRows[0];
-      expect(rowData[2]).toBe('789'); // entityId
-      expect(rowData[1]).toBe('Ad Group: Test Ad Group'); // entityName
-      expect(rowData[3]).toBe(StrategyType.TARGET_ROAS); // strategyType
-      expect(rowData[5]).toBe(1.1); // currentTarget
-      expect(rowData[8]).toBe(1.2); // simulationTarget
-      expect(rowData[12]).toBe(3); // cost (3000000 / 1e6)
+      const campaignRow = appendedRows[0];
+      expect(campaignRow[2]).toBe('456'); // entityId
+      expect(campaignRow[1]).toBe('Campaign: Test Campaign'); // entityName
+      expect(campaignRow[5]).toBe(0.7); // currentTarget
+      expect(campaignRow[8]).toBe(0.8); // simulationTarget
+    });
+
+    it('should correctly process and append ad group simulations', () => {
+      // Arrange
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue(mockAdGroupSim);
+
+      mockGoogleAdsClient.getEntityTarget.mockReturnValue(12);
+
+      // Act
+      simulationsSheet.load(mockGoogleAdsClient);
+
+      // Assert
+      const [, appendedRows] = mockSpreadsheetService.appendRows.mock.calls[0];
+      expect(appendedRows.length).toBe(1);
+
+      const adGroupRow = appendedRows[0];
+      expect(adGroupRow[2]).toBe('789'); // entityId
+      expect(adGroupRow[1]).toBe('Ad Group: Test Ad Group'); // entityName
+      expect(adGroupRow[3]).toBe(StrategyType.TARGET_CPA); // strategyType
+      expect(adGroupRow[5]).toBe(12); // currentTarget
+      expect(adGroupRow[8]).toBe(15); // simulationTarget
+    });
+
+    it('should append formulas after loading data', () => {
+      // Arrange
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(mockStrategySim);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.4);
+
+      // Act
+      simulationsSheet.load(mockGoogleAdsClient);
+
+      // Assert
+      expect(mockSheet.getRange).toHaveBeenCalled();
+      expect(mockRange.setFormula).toHaveBeenCalledTimes(8); // 8 formulas
+      expect(mockRange.copyTo).toHaveBeenCalledTimes(8);
+    });
+
+    it('should handle cases where no simulations are returned', () => {
+      // Arrange
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
+
+      // Act
+      simulationsSheet.load(mockGoogleAdsClient);
+
+      // Assert
+      expect(mockSpreadsheetService.appendRows).toHaveBeenCalledWith(
+        SimulationsSheet.SIM_SHEET,
+        []
+      );
+      // Ensure formulas are still appended (to headers) even with no data
+      expect(mockSheet.getRange).toHaveBeenCalled();
     });
   });
 });

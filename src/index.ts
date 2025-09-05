@@ -23,11 +23,11 @@ const LOGIN_CUSTOMER_ID = 'YOUR-MCC-CUSTOMER-ID';
 // Ads Script configuration
 const CUSTOMER_IDS = ['YOUR-CUSTOMER-ID'];
 
-import {SpreadsheetService} from './spreadsheet_service';
 import {CidSheet, CustomerLabelsIndex} from './cid_sheet';
-import {SimulationsSheet} from './simulations_sheet';
-import {TargetsSheet} from './targets_sheet';
 import {GoogleAdsClient} from './google_ads_client';
+import {SimulationsSheet} from './simulations_sheet';
+import {SpreadsheetService} from './spreadsheet_service';
+import {TargetsSheet} from './targets_sheet';
 
 const spreadsheetService = new SpreadsheetService(SPREADSHEET_ID);
 

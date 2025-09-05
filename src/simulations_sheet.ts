@@ -16,7 +16,6 @@
 
 import {
   BaseSimulation,
-  CampaignSimulationResponse,
   GoogleAdsClient,
   StrategyType,
 } from './google_ads_client';
@@ -167,18 +166,8 @@ export class SimulationsSheet {
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.biddingStrategySimulation;
-      let currentTarget: string | number = '';
-      if (
-        sim.type === StrategyType.TARGET_ROAS &&
-        s.biddingStrategy.targetRoas
-      ) {
-        currentTarget = s.biddingStrategy.targetRoas.targetRoas;
-      } else if (
-        sim.type === StrategyType.TARGET_CPA &&
-        s.biddingStrategy.targetCpa
-      ) {
-        currentTarget = s.biddingStrategy.targetCpa.targetCpaMicros / 1e6;
-      }
+      const currentTarget =
+        googleAdsClient.getEntityTarget(sim.type, s.biddingStrategy) ?? '';
       apiRows.push(
         ...this.createSimulationRows(
           sim.biddingStrategyId,
@@ -200,22 +189,18 @@ export class SimulationsSheet {
     const simulations =
       googleAdsClient.fetchCampaignSimulations();
     const apiRows: Array<Array<string | number>> = [];
-    try {
-      for (const s of simulations) {
-        const sim = s.campaignSimulation;
-        apiRows.push(
-          ...this.createSimulationRows(
-            sim.campaignId,
-            `Campaign: ${s.campaign.name}`,
-            s.campaign.biddingStrategyType,
-            s.customer.descriptiveName,
-            this.getCampaignTarget(sim.type, s),
-            sim
-          )
-        );
-      }
-    } catch (error: unknown) {
-      console.log(error);
+    for (const s of simulations) {
+      const sim = s.campaignSimulation;
+      apiRows.push(
+        ...this.createSimulationRows(
+          sim.campaignId,
+          `Campaign: ${s.campaign.name}`,
+          s.campaign.biddingStrategyType,
+          s.customer.descriptiveName,
+          googleAdsClient.getEntityTarget(sim.type, s.campaign) ?? '',
+          sim
+        )
+      );
     }
 
     return apiRows;
@@ -229,18 +214,10 @@ export class SimulationsSheet {
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.adGroupSimulation;
-      const strategyType =
-        s.adGroup.effectiveTargetRoas! > 0
-          ? 'TARGET_ROAS'
-          : s.adGroup.effectiveTargetCpaMicros! > 0
-          ? 'TARGET_CPA'
-          : 'Other';
-      let currentTarget: string | number = '';
-      if (s.adGroup.effectiveTargetRoas) {
-        currentTarget = s.adGroup.effectiveTargetRoas;
-      } else if (s.adGroup.effectiveTargetCpaMicros) {
-        currentTarget = s.adGroup.effectiveTargetCpaMicros / 1e6;
-      }
+      // For ad groups, the simulation type is the same as the strategy type
+      const strategyType = sim.type;
+      const currentTarget =
+        googleAdsClient.getEntityTarget(strategyType, s.adGroup) ?? '';
       apiRows.push(
         ...this.createSimulationRows(
           sim.adGroupId,
@@ -314,29 +291,6 @@ export class SimulationsSheet {
         // Copy to rest rows
         .copyTo(sheet.getRange(3, column, lastRow - 2));
     });
-  }
-
-  private getCampaignTarget(
-    strategyType: StrategyType,
-    simulation: CampaignSimulationResponse
-  ): number {
-    if (strategyType === StrategyType.TARGET_ROAS) {
-      if (simulation.campaign.maximizeConversionValue) {
-        return simulation.campaign.maximizeConversionValue.targetRoas;
-      }
-      if (simulation.campaign.targetRoas) {
-        return simulation.campaign.targetRoas.targetRoas;
-      }
-    } else if (strategyType === StrategyType.TARGET_CPA) {
-      if (simulation.campaign.maximizeConversions) {
-        return simulation.campaign.maximizeConversions.targetCpaMicros / 1e6;
-      }
-      if (simulation.campaign.targetCpa) {
-        return simulation.campaign.targetCpa.targetCpaMicros / 1e6;
-      }
-    }
-
-    throw new Error('Unable to find the campaign target');
   }
 
   /**

@@ -14,83 +14,6 @@
  * limitations under the License.
  */
 
-class SpreadsheetService {
-    constructor(spreadsheetId) {
-        this.spreadsheetId = spreadsheetId;
-        this.spreadsheet = null;
-    }
-    getSpreadsheet(sheetName) {
-        if (!this.spreadsheet) {
-            this.spreadsheet = SpreadsheetApp.openById(this.spreadsheetId);
-        }
-        const sheet = this.spreadsheet.getSheetByName(sheetName);
-        if (!sheet) {
-            throw new Error(`Sheet ${sheetName} cannot be found. Please initialize first.`);
-        }
-        return sheet;
-    }
-    fetchValuesFromColumn(sheetName, columnId, excludeEmpty = true) {
-        const sheet = this.getSpreadsheet(sheetName);
-        const lastRow = sheet.getLastRow();
-        if (lastRow < 2) {
-            return [];
-        }
-        const range = sheet.getRange(2, columnId + 1, lastRow - 1, 1).getValues();
-        return range
-            .map(r => r[0])
-            .filter(r => !excludeEmpty || (r !== '' && r !== null));
-    }
-    updateRows(sheetName, apiRows, idColumn) {
-        const sheet = this.getSpreadsheet(sheetName);
-        const extraRows = [];
-        const ids = this.fetchValuesFromColumn(sheetName, idColumn, false);
-        for (const apiRow of apiRows) {
-            const id = apiRow[idColumn];
-            const index = ids.indexOf(id.toString());
-            if (index > -1) {
-                const rowIndex = index + 2;
-                sheet.getRange(rowIndex, 1, 1, apiRow.length).setValues([apiRow]);
-            }
-            else {
-                extraRows.push(apiRow);
-            }
-        }
-        this.appendRows(sheetName, extraRows);
-    }
-    appendRows(sheetName, rows) {
-        if (rows.length === 0) {
-            return;
-        }
-        const sheet = this.getSpreadsheet(sheetName);
-        sheet
-            .getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length)
-            .setValues(rows);
-    }
-    clearSheet(sheetName) {
-        const sheet = this.getSpreadsheet(sheetName);
-        const lastRow = sheet.getLastRow();
-        const lastColumn = sheet.getLastColumn();
-        if (lastRow > 1) {
-            sheet.getRange(2, 1, lastRow - 1, Math.max(1, lastColumn)).clearContent();
-        }
-    }
-    insertSheet(sheetName, headers) {
-        if (!this.spreadsheet) {
-            this.spreadsheet = SpreadsheetApp.openById(this.spreadsheetId);
-        }
-        let sheet = this.spreadsheet.getSheetByName(sheetName);
-        if (!sheet) {
-            sheet = this.spreadsheet.insertSheet(sheetName);
-        }
-        if (headers.length > 0) {
-            sheet
-                .getRange(1, 1, 1, headers.length)
-                .setValues([headers])
-                .setFontWeight('bold');
-        }
-    }
-}
-
 var CustomerLabelsIndex;
 (function (CustomerLabelsIndex) {
     CustomerLabelsIndex[CustomerLabelsIndex["CUSTOMER_NAME"] = 0] = "CUSTOMER_NAME";
@@ -270,6 +193,7 @@ class GoogleAdsClient {
     fetchBiddingStrategySimulations() {
         const query = `
           SELECT
+            bidding_strategy.resource_name,
             bidding_strategy_simulation.bidding_strategy_id,
             bidding_strategy_simulation.type,
             bidding_strategy.type,
@@ -290,6 +214,7 @@ class GoogleAdsClient {
         const query = `
         SELECT
           customer.descriptive_name,
+          campaign.resource_name,
           campaign.name,
           campaign_simulation.type,
           campaign.bidding_strategy_type,
@@ -315,6 +240,7 @@ class GoogleAdsClient {
         const query = `
         SELECT
           customer.descriptive_name,
+          ad_group.resource_name,
           ad_group.name,
           ad_group_simulation.type,
           ad_group.effective_target_cpa_micros,
@@ -328,6 +254,35 @@ class GoogleAdsClient {
         WHERE ad_group_simulation.type IN ('${StrategyType.TARGET_ROAS}', '${StrategyType.TARGET_CPA}')
       `;
         return this.searchStream(query);
+    }
+    getEntityTarget(strategyType, entity) {
+        if (strategyType === StrategyType.TARGET_ROAS ||
+            strategyType === StrategyType.MAXIMIZE_CONVERSION_VALUE) {
+            if ('maximizeConversionValue' in entity && entity.maximizeConversionValue) {
+                return entity.maximizeConversionValue.targetRoas;
+            }
+            if ('targetRoas' in entity && entity.targetRoas) {
+                return typeof entity.targetRoas === 'number'
+                    ? entity.targetRoas
+                    : entity.targetRoas.targetRoas;
+            }
+            if ('effectiveTargetRoas' in entity && entity.effectiveTargetRoas) {
+                return entity.effectiveTargetRoas;
+            }
+        }
+        else if (strategyType === StrategyType.TARGET_CPA ||
+            strategyType === StrategyType.MAXIMIZE_CONVERSIONS) {
+            if ('maximizeConversions' in entity && entity.maximizeConversions) {
+                return entity.maximizeConversions.targetCpaMicros / 1e6;
+            }
+            if ('targetCpa' in entity && entity.targetCpa) {
+                return entity.targetCpa.targetCpaMicros / 1e6;
+            }
+            if ('effectiveTargetCpaMicros' in entity && entity.effectiveTargetCpaMicros) {
+                return entity.effectiveTargetCpaMicros / 1e6;
+            }
+        }
+        return undefined;
     }
 }
 
@@ -435,15 +390,7 @@ class SimulationsSheet {
         const apiRows = [];
         for (const s of simulations) {
             const sim = s.biddingStrategySimulation;
-            let currentTarget = '';
-            if (sim.type === StrategyType.TARGET_ROAS &&
-                s.biddingStrategy.targetRoas) {
-                currentTarget = s.biddingStrategy.targetRoas.targetRoas;
-            }
-            else if (sim.type === StrategyType.TARGET_CPA &&
-                s.biddingStrategy.targetCpa) {
-                currentTarget = s.biddingStrategy.targetCpa.targetCpaMicros / 1e6;
-            }
+            const currentTarget = googleAdsClient.getEntityTarget(sim.type, s.biddingStrategy) ?? '';
             apiRows.push(...this.createSimulationRows(sim.biddingStrategyId, `Strategy: ${s.biddingStrategy.name}`, s.biddingStrategy.type, s.customer.descriptiveName, currentTarget, sim));
         }
         return apiRows;
@@ -451,14 +398,9 @@ class SimulationsSheet {
     getCampaignSimulations(googleAdsClient) {
         const simulations = googleAdsClient.fetchCampaignSimulations();
         const apiRows = [];
-        try {
-            for (const s of simulations) {
-                const sim = s.campaignSimulation;
-                apiRows.push(...this.createSimulationRows(sim.campaignId, `Campaign: ${s.campaign.name}`, s.campaign.biddingStrategyType, s.customer.descriptiveName, this.getCampaignTarget(sim.type, s), sim));
-            }
-        }
-        catch (error) {
-            console.log(error);
+        for (const s of simulations) {
+            const sim = s.campaignSimulation;
+            apiRows.push(...this.createSimulationRows(sim.campaignId, `Campaign: ${s.campaign.name}`, s.campaign.biddingStrategyType, s.customer.descriptiveName, googleAdsClient.getEntityTarget(sim.type, s.campaign) ?? '', sim));
         }
         return apiRows;
     }
@@ -467,18 +409,8 @@ class SimulationsSheet {
         const apiRows = [];
         for (const s of simulations) {
             const sim = s.adGroupSimulation;
-            const strategyType = s.adGroup.effectiveTargetRoas > 0
-                ? 'TARGET_ROAS'
-                : s.adGroup.effectiveTargetCpaMicros > 0
-                    ? 'TARGET_CPA'
-                    : 'Other';
-            let currentTarget = '';
-            if (s.adGroup.effectiveTargetRoas) {
-                currentTarget = s.adGroup.effectiveTargetRoas;
-            }
-            else if (s.adGroup.effectiveTargetCpaMicros) {
-                currentTarget = s.adGroup.effectiveTargetCpaMicros / 1e6;
-            }
+            const strategyType = sim.type;
+            const currentTarget = googleAdsClient.getEntityTarget(strategyType, s.adGroup) ?? '';
             apiRows.push(...this.createSimulationRows(sim.adGroupId, `Ad Group: ${s.adGroup.name}`, strategyType, s.customer.descriptiveName, currentTarget, sim));
         }
         return apiRows;
@@ -528,30 +460,88 @@ class SimulationsSheet {
                 .copyTo(sheet.getRange(3, column, lastRow - 2));
         });
     }
-    getCampaignTarget(strategyType, simulation) {
-        if (strategyType === StrategyType.TARGET_ROAS) {
-            if (simulation.campaign.maximizeConversionValue) {
-                return simulation.campaign.maximizeConversionValue.targetRoas;
-            }
-            if (simulation.campaign.targetRoas) {
-                return simulation.campaign.targetRoas.targetRoas;
-            }
-        }
-        else if (strategyType === StrategyType.TARGET_CPA) {
-            if (simulation.campaign.maximizeConversions) {
-                return simulation.campaign.maximizeConversions.targetCpaMicros / 1e6;
-            }
-            if (simulation.campaign.targetCpa) {
-                return simulation.campaign.targetCpa.targetCpaMicros / 1e6;
-            }
-        }
-        throw new Error('Unable to find the campaign target');
-    }
     initializeSheet() {
         this.spreadsheetService.insertSheet(SimulationsSheet.SIM_SHEET, this.getSimulationsHeaders());
     }
 }
 SimulationsSheet.SIM_SHEET = 'Simulations';
+
+class SpreadsheetService {
+    constructor(spreadsheetId) {
+        this.spreadsheetId = spreadsheetId;
+        this.spreadsheet = null;
+    }
+    getSpreadsheet(sheetName) {
+        if (!this.spreadsheet) {
+            this.spreadsheet = SpreadsheetApp.openById(this.spreadsheetId);
+        }
+        const sheet = this.spreadsheet.getSheetByName(sheetName);
+        if (!sheet) {
+            throw new Error(`Sheet ${sheetName} cannot be found. Please initialize first.`);
+        }
+        return sheet;
+    }
+    fetchValuesFromColumn(sheetName, columnId, excludeEmpty = true) {
+        const sheet = this.getSpreadsheet(sheetName);
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2) {
+            return [];
+        }
+        const range = sheet.getRange(2, columnId + 1, lastRow - 1, 1).getValues();
+        return range
+            .map(r => r[0])
+            .filter(r => !excludeEmpty || (r !== '' && r !== null));
+    }
+    updateRows(sheetName, apiRows, idColumn) {
+        const sheet = this.getSpreadsheet(sheetName);
+        const extraRows = [];
+        const ids = this.fetchValuesFromColumn(sheetName, idColumn, false);
+        for (const apiRow of apiRows) {
+            const id = apiRow[idColumn];
+            const index = ids.indexOf(id.toString());
+            if (index > -1) {
+                const rowIndex = index + 2;
+                sheet.getRange(rowIndex, 1, 1, apiRow.length).setValues([apiRow]);
+            }
+            else {
+                extraRows.push(apiRow);
+            }
+        }
+        this.appendRows(sheetName, extraRows);
+    }
+    appendRows(sheetName, rows) {
+        if (rows.length === 0) {
+            return;
+        }
+        const sheet = this.getSpreadsheet(sheetName);
+        sheet
+            .getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length)
+            .setValues(rows);
+    }
+    clearSheet(sheetName) {
+        const sheet = this.getSpreadsheet(sheetName);
+        const lastRow = sheet.getLastRow();
+        const lastColumn = sheet.getLastColumn();
+        if (lastRow > 1) {
+            sheet.getRange(2, 1, lastRow - 1, Math.max(1, lastColumn)).clearContent();
+        }
+    }
+    insertSheet(sheetName, headers) {
+        if (!this.spreadsheet) {
+            this.spreadsheet = SpreadsheetApp.openById(this.spreadsheetId);
+        }
+        let sheet = this.spreadsheet.getSheetByName(sheetName);
+        if (!sheet) {
+            sheet = this.spreadsheet.insertSheet(sheetName);
+        }
+        if (headers.length > 0) {
+            sheet
+                .getRange(1, 1, 1, headers.length)
+                .setValues([headers])
+                .setFontWeight('bold');
+        }
+    }
+}
 
 const DATE_RANGES = ['LAST_30_DAYS'];
 const TARGETS_METRICS = [
