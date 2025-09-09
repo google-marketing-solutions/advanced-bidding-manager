@@ -550,6 +550,31 @@ export class GoogleAdsClient {
     }
     return undefined;
   }
+
+  /**
+   * Extracts simulation points from a simulation object based on its type.
+   * @param simulation The simulation object.
+   * @return An array of simulation points, or undefined if not found.
+   */
+  getPoints(simulation: BaseSimulation): SimulationPoint[] | undefined {
+    if (simulation.type === StrategyType.TARGET_ROAS) {
+      return simulation.targetRoasPointList?.points;
+    }
+    return simulation.targetCpaPointList?.points;
+  }
+
+  /**
+   * Gets the target value from a single simulation point.
+   * @param strategyType The bidding strategy type of the simulation.
+   * @param point The simulation point.
+   * @return The target value for the point.
+   */
+  getPointTarget(strategyType: StrategyType, point: SimulationPoint): number {
+    if (strategyType === StrategyType.TARGET_ROAS) {
+      return (point as TargetRoasPoint).targetRoas;
+    }
+    return (point as TargetCpaPoint).targetCpaMicros / 1e6;
+  }
 }
 
 interface ApiResponse<T> {

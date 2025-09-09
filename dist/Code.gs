@@ -284,6 +284,18 @@ class GoogleAdsClient {
         }
         return undefined;
     }
+    getPoints(simulation) {
+        if (simulation.type === StrategyType.TARGET_ROAS) {
+            return simulation.targetRoasPointList?.points;
+        }
+        return simulation.targetCpaPointList?.points;
+    }
+    getPointTarget(strategyType, point) {
+        if (strategyType === StrategyType.TARGET_ROAS) {
+            return point.targetRoas;
+        }
+        return point.targetCpaMicros / 1e6;
+    }
 }
 
 var SimLabelsIndex;
@@ -542,6 +554,539 @@ class SpreadsheetService {
         }
     }
 }
+
+class Curve {
+    constructor(strategyType, data, initialParams, metricName, maxIterations = 1000, tolerance = 1e-6) {
+        this.a = null;
+        this.b = null;
+        this.c = null;
+        this.rSquared = null;
+        this.strategyType = strategyType;
+        this.metricName = metricName;
+        this.maxIterations = maxIterations;
+        this.tolerance = tolerance;
+        if (data && data.length >= 3) {
+            this.fit(data, initialParams);
+        }
+        else {
+            console.error(`Data for metric '${metricName}' is empty or has fewer than 3 points. Curve cannot be fitted.`);
+        }
+    }
+    fit(data, initialParams) {
+        const n = initialParams.length;
+        const simplex = this.initializeSimplex(initialParams);
+        let iterations = 0;
+        while (iterations < this.maxIterations) {
+            simplex.sort((a, b) => this.calculateLoss(data, a) - this.calculateLoss(data, b));
+            const best = simplex[0];
+            const worst = simplex[n];
+            const secondWorst = simplex[n - 1];
+            const centroid = this.calculateCentroid(simplex, n);
+            const reflected = this.reflect(centroid, worst, 1);
+            const lossReflected = this.calculateLoss(data, reflected);
+            const lossWorst = this.calculateLoss(data, worst);
+            const lossBest = this.calculateLoss(data, best);
+            const lossSecondWorst = this.calculateLoss(data, secondWorst);
+            if (lossReflected < lossBest) {
+                const expanded = this.reflect(centroid, worst, 2);
+                const lossExpanded = this.calculateLoss(data, expanded);
+                const lossReflected = this.calculateLoss(data, reflected);
+                simplex[n] =
+                    lossExpanded < lossReflected
+                        ? expanded
+                        : reflected;
+            }
+            else if (lossReflected < lossSecondWorst) {
+                simplex[n] = reflected;
+            }
+            else {
+                const contractionFactor = 0.5;
+                let contracted;
+                if (lossReflected < lossWorst) {
+                    contracted = this.reflect(centroid, worst, contractionFactor);
+                }
+                else {
+                    contracted = this.reflect(centroid, worst, -contractionFactor);
+                }
+                const lossContracted = this.calculateLoss(data, contracted);
+                if (lossContracted < lossWorst) {
+                    simplex[n] = contracted;
+                }
+                else {
+                    this.shrink(simplex, best);
+                }
+            }
+            if (this.checkConvergence(simplex, this.tolerance, data)) {
+                break;
+            }
+            iterations++;
+        }
+        [this.a, this.b, this.c] = simplex[0];
+        this.rSquared = this.calculateRSquared(data);
+    }
+    predictValue(target) {
+        if (target === undefined || this.a === null || this.b === null || this.c === null) {
+            return undefined;
+        }
+        if (this.strategyType === StrategyType.TARGET_ROAS) {
+            return this.predictValuePower(target);
+        }
+        else {
+            return this.predictValuePolynomial(target);
+        }
+    }
+    calculateGradient(target) {
+        if (this.a === null || this.b === null || this.c === null) {
+            return null;
+        }
+        if (this.strategyType === StrategyType.TARGET_ROAS) {
+            const predictedValue = this.predictValue(target);
+            if (predictedValue === undefined) {
+                return null;
+            }
+            return predictedValue * (this.b / target + (2 * this.c * Math.log(target)) / target);
+        }
+        else {
+            return 2 * this.a * target + this.b;
+        }
+    }
+    predictValuePower(troas) {
+        const logTroas = Math.log(troas);
+        return Math.exp(this.a + this.b * logTroas + this.c * logTroas ** 2);
+    }
+    predictValuePolynomial(tcpa) {
+        return this.a * tcpa ** 2 + this.b * tcpa + this.c;
+    }
+    calculateRSquared(data) {
+        const yValues = data.map(item => item[1]);
+        const meanY = yValues.reduce((sum, y) => sum + y, 0) / yValues.length;
+        let totalSumOfSquares = 0;
+        let residualSumOfSquares = 0;
+        for (const [x, y] of data) {
+            const prediction = this.predictValue(x);
+            if (prediction === undefined)
+                continue;
+            totalSumOfSquares += (y - meanY) ** 2;
+            residualSumOfSquares += (y - prediction) ** 2;
+        }
+        if (totalSumOfSquares === 0) {
+            return 1;
+        }
+        return 1 - (residualSumOfSquares / totalSumOfSquares);
+    }
+    getRSquared() {
+        return this.rSquared;
+    }
+    calculateLoss(data, params) {
+        if (this.strategyType === StrategyType.TARGET_ROAS) {
+            return this.calculateLossPower(data, params);
+        }
+        else {
+            return this.calculateLossPolynomial(data, params);
+        }
+    }
+    calculateLossPower(data, params) {
+        const [a, b, c] = params;
+        let totalErrorSquared = 0;
+        for (const [x, y] of data) {
+            const logX = Math.log(x);
+            const prediction = Math.exp(a + b * logX + c * logX ** 2);
+            totalErrorSquared += (y - prediction) ** 2;
+        }
+        return Math.sqrt(totalErrorSquared / data.length);
+    }
+    calculateLossPolynomial(data, params) {
+        const [a, b, c] = params;
+        let totalErrorSquared = 0;
+        for (const [x, y] of data) {
+            const prediction = a * x ** 2 + b * x + c;
+            const error = y - prediction;
+            totalErrorSquared += error ** 2;
+        }
+        return Math.sqrt(totalErrorSquared / data.length);
+    }
+    initializeSimplex(initialParams) {
+        const dimensions = initialParams.length;
+        const simplex = [initialParams];
+        const perturbationFactor = 1.05;
+        for (let i = 0; i < dimensions; i++) {
+            const point = initialParams.slice();
+            point[i] *= perturbationFactor;
+            simplex.push(point);
+        }
+        return simplex;
+    }
+    calculateCentroid(simplex, dimensions) {
+        const centroid = new Array(dimensions).fill(0);
+        for (let i = 0; i < dimensions; i++) {
+            for (let j = 0; j < dimensions; j++) {
+                centroid[j] += simplex[i][j];
+            }
+        }
+        return centroid.map(coordinate => coordinate / dimensions);
+    }
+    reflect(centroid, point, factor) {
+        return centroid.map((c, i) => c + factor * (c - point[i]));
+    }
+    shrink(simplex, best) {
+        const shrinkFactor = 0.5;
+        for (let i = 1; i < simplex.length; i++) {
+            simplex[i] = best.map((b, j) => b + shrinkFactor * (simplex[i][j] - b));
+        }
+    }
+    checkConvergence(simplex, tolerance, data) {
+        const bestLoss = this.calculateLoss(data, simplex[0]);
+        let maxLossDifference = 0;
+        for (let i = 1; i < simplex.length; i++) {
+            const currentLoss = this.calculateLoss(data, simplex[i]);
+            const difference = Math.abs(currentLoss - bestLoss);
+            if (difference > maxLossDifference) {
+                maxLossDifference = difference;
+            }
+        }
+        return maxLossDifference < tolerance;
+    }
+}
+
+class TargetAnalyzer {
+    constructor(curve) {
+        this.curve = curve;
+    }
+    predictValue(targetValue) {
+        return this.curve.predictValue(targetValue);
+    }
+    findOptimalTargetForProfitUnconstrained(strategyType) {
+        const { initialTarget, maxTarget, minTarget, maxIterations, learningRate: initialLearningRate, tolerance, } = this.getOptimizationConfig(strategyType);
+        let target = initialTarget;
+        let learningRate = initialLearningRate;
+        let previousTarget = 0;
+        for (let i = 0; i < maxIterations; i++) {
+            const gradient = this.curve.calculateGradient(target);
+            if (gradient === null) {
+                console.error('Gradient could not be calculated. Aborting optimization.');
+                return target;
+            }
+            const gradientMagnitude = Math.abs(gradient);
+            const normalizedGradient = gradientMagnitude > 0 ? gradient / gradientMagnitude : 0;
+            let newTarget = target + learningRate * normalizedGradient;
+            newTarget = Math.max(minTarget, Math.min(maxTarget, newTarget));
+            if (i > 0 && (newTarget - target) * (target - previousTarget) < 0) {
+                learningRate *= 0.1;
+            }
+            if (Math.abs(newTarget - previousTarget) < tolerance) {
+                return newTarget;
+            }
+            previousTarget = target;
+            target = newTarget;
+        }
+        console.warn(`Optimization did not converge after ${maxIterations} iterations.`);
+        return target;
+    }
+    suggestNewTarget(currentTarget, optimalTarget, strategyType) {
+        const { maxTarget } = this.getOptimizationConfig(strategyType);
+        const maxMovePercentage = 0.05;
+        const profitSensitivity = 0.1;
+        const profitTarget = this.predictValue(currentTarget);
+        const profitOptimal = this.predictValue(optimalTarget);
+        if (profitTarget === undefined || profitOptimal === undefined) {
+            console.warn('Could not predict profit for target suggestion.');
+            const fallbackMovePercentage = 0.05;
+            return currentTarget * (1 + Math.sign(optimalTarget - currentTarget) * fallbackMovePercentage);
+        }
+        const targetDifference = optimalTarget - currentTarget;
+        const maxTargetMove = Math.abs(targetDifference) * maxMovePercentage;
+        const normalizedProfitDifference = Math.abs(profitOptimal - profitTarget) /
+            Math.max(Math.abs(profitTarget), Math.abs(profitOptimal), 1);
+        let targetMove = maxTargetMove;
+        if (normalizedProfitDifference < profitSensitivity) {
+            targetMove *= normalizedProfitDifference / profitSensitivity;
+        }
+        const direction = targetDifference > 0 ? 1 : -1;
+        const newTarget = currentTarget + direction * targetMove;
+        return Math.max(0.1, Math.min(maxTarget, newTarget));
+    }
+    getOptimizationConfig(strategyType) {
+        if (strategyType === StrategyType.TARGET_ROAS) {
+            return {
+                initialTarget: 4.5,
+                maxTarget: 500.0,
+                minTarget: 1.0,
+                maxIterations: 1000,
+                learningRate: 0.05,
+                tolerance: 1e-5,
+            };
+        }
+        return {
+            initialTarget: 50,
+            maxTarget: 2000000.0,
+            minTarget: 1.0,
+            maxIterations: 100000,
+            learningRate: 0.05,
+            tolerance: 1e-5,
+        };
+    }
+}
+
+var SuggestedTargetsLabelsIndex;
+(function (SuggestedTargetsLabelsIndex) {
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["BIDDING_STRATEGY_ID"] = 0] = "BIDDING_STRATEGY_ID";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["BIDDING_STRATEGY_NAME"] = 1] = "BIDDING_STRATEGY_NAME";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["BIDDING_STRATEGY_TYPE"] = 2] = "BIDDING_STRATEGY_TYPE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_TARGET"] = 3] = "CURRENT_TARGET";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_TARGET"] = 4] = "SUGGESTED_TARGET";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_TARGET"] = 5] = "OPTIMAL_TARGET";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_PROFIT"] = 6] = "CURRENT_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_PROFIT"] = 7] = "SUGGESTED_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_PROFIT"] = 8] = "OPTIMAL_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_COST"] = 9] = "CURRENT_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_COST"] = 10] = "SUGGESTED_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_COST"] = 11] = "OPTIMAL_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSION_VALUE"] = 12] = "CURRENT_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSION_VALUE"] = 13] = "SUGGESTED_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSION_VALUE"] = 14] = "OPTIMAL_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CLICKS"] = 15] = "CURRENT_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CLICKS"] = 16] = "SUGGESTED_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CLICKS"] = 17] = "OPTIMAL_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_IMPRESSIONS"] = 18] = "CURRENT_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_IMPRESSIONS"] = 19] = "SUGGESTED_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_IMPRESSIONS"] = 20] = "OPTIMAL_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSIONS"] = 21] = "CURRENT_CONVERSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSIONS"] = 22] = "SUGGESTED_CONVERSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSIONS"] = 23] = "OPTIMAL_CONVERSIONS";
+})(SuggestedTargetsLabelsIndex || (SuggestedTargetsLabelsIndex = {}));
+class SuggestedTargetsSheet {
+    constructor(spreadsheetService) {
+        this.spreadsheetService = spreadsheetService;
+    }
+    initializeSheet() {
+        this.spreadsheetService.insertSheet(SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, this.getSuggestedTargetsHeaders());
+    }
+    getSuggestedTargetsHeaders() {
+        const headers = [];
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] = 'Bidding Strategy ID';
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = 'Bidding Strategy Name';
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = 'Bidding Strategy Type';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = 'Current Target';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = 'Suggested Target';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = 'Optimal Target';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_PROFIT] = 'Current Profit';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_PROFIT] = 'Suggested Profit';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_PROFIT] = 'Optimal Profit';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_COST] = 'Current Cost';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_COST] = 'Suggested Cost';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_COST] = 'Optimal Cost';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSION_VALUE] = 'Current Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSION_VALUE] = 'Suggested Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSION_VALUE] = 'Optimal Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSIONS] = 'Current Conversions';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSIONS] = 'Suggested Conversions';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSIONS] = 'Optimal Conversions';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_CLICKS] = 'Current Clicks';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CLICKS] = 'Suggested Clicks';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CLICKS] = 'Optimal Clicks';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_IMPRESSIONS] = 'Current Impressions';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_IMPRESSIONS] = 'Suggested Impressions';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_IMPRESSIONS] = 'Optimal Impressions';
+        return headers;
+    }
+    load(googleAdsClient) {
+        this.spreadsheetService.clearSheet(SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET);
+        const metricToOptimizeTowards = SuggestedTargetsSheet.METRIC_TO_OPTIMIZE_TO;
+        const metrics = SuggestedTargetsSheet.METRICS;
+        const portfolioSuggestions = this.getStrategySuggestions(googleAdsClient, metricToOptimizeTowards, metrics);
+        this.spreadsheetService.appendRows(SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, portfolioSuggestions);
+        const campaignSuggestions = this.getCampaignSuggestions(googleAdsClient, metricToOptimizeTowards, metrics);
+        this.spreadsheetService.appendRows(SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, campaignSuggestions);
+        const adGroupSuggestions = this.getAdGroupSuggestions(googleAdsClient, metricToOptimizeTowards, metrics);
+        this.spreadsheetService.appendRows(SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, adGroupSuggestions);
+    }
+    getStrategySuggestions(googleAdsClient, metricToOptimizeTowards, metrics) {
+        const sheetRows = [];
+        const simulations = googleAdsClient.fetchBiddingStrategySimulations();
+        for (const s of simulations) {
+            const simulation = s.biddingStrategySimulation;
+            const entity = s.biddingStrategy;
+            const row = this.generateSuggestionsRow(googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+            sheetRows.push(row);
+        }
+        return sheetRows;
+    }
+    getCampaignSuggestions(googleAdsClient, metricToOptimizeTowards, metrics) {
+        const sheetRows = [];
+        const simulations = googleAdsClient.fetchCampaignSimulations();
+        for (const s of simulations) {
+            const simulation = s.campaignSimulation;
+            const entity = s.campaign;
+            const row = this.generateSuggestionsRow(googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+            sheetRows.push(row);
+        }
+        return sheetRows;
+    }
+    getAdGroupSuggestions(googleAdsClient, metricToOptimizeTowards, metrics) {
+        const sheetRows = [];
+        const simulations = googleAdsClient.fetchAdGroupSimulations();
+        for (const s of simulations) {
+            const simulation = s.adGroupSimulation;
+            const entity = s.adGroup;
+            const row = this.generateSuggestionsRow(googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+            sheetRows.push(row);
+        }
+        return sheetRows;
+    }
+    generateSuggestionsRow(googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics) {
+        const row = [];
+        row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] = entity.resourceName;
+        row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = entity.name;
+        const simType = simulation.type;
+        row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = simType;
+        const currentTarget = googleAdsClient.getEntityTarget(simType, entity) ?? 0;
+        row[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = currentTarget ?? '';
+        const currentFilledInCellsCount = 5;
+        const remainingCellsCount = this.getSuggestedTargetsHeaders().length - currentFilledInCellsCount;
+        const points = googleAdsClient.getPoints(simulation);
+        if (!points) {
+            row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] =
+                'ERROR: No points found';
+            const emptyRow = new Array(remainingCellsCount).fill('No data points');
+            row.push(...emptyRow);
+            return row;
+        }
+        let initialParams = [-2, 2, -0.5];
+        if (simType === StrategyType.TARGET_CPA) {
+            initialParams = [0.1, 1, 25];
+        }
+        const curves = this.createCurvesForAllMetrics(googleAdsClient, simType, currentTarget, points, metrics, initialParams);
+        const [, dataProfit] = this.calculateValuePerMetric(googleAdsClient, simType, points, currentTarget, metricToOptimizeTowards);
+        if (dataProfit &&
+            metricToOptimizeTowards in curves) {
+            const [optimalTarget, suggestedTarget] = this.getTargetSuggestions(currentTarget, dataProfit, curves);
+            row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = suggestedTarget ?? '';
+            row[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = optimalTarget ?? '';
+            metrics.forEach(metric => {
+                if (metric in curves) {
+                    const curve = curves[metric];
+                    const currentActualValue = curve.predictValue(currentTarget) ?? 'N/A';
+                    const suggestedActualValue = curve.predictValue(suggestedTarget) ?? 'N/A';
+                    const optimalActualValue = curve.predictValue(optimalTarget) ?? 'N/A';
+                    row.push(...[currentActualValue, suggestedActualValue, optimalActualValue]);
+                }
+                else {
+                    row.push(...['N/A', 'N/A', 'N/A']);
+                }
+            });
+            return row;
+        }
+        else {
+            row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] =
+                'ERROR: No data found for optimization metric';
+            const emptyRow = new Array(remainingCellsCount).fill('No data points');
+            row.push(...emptyRow);
+            return row;
+        }
+    }
+    getTargetSuggestions(currentTarget, dataProfit, curves) {
+        if (dataProfit && dataProfit.length > 0) {
+            const profit_curve = curves["profit"];
+            if (profit_curve) {
+                const analyzer = new TargetAnalyzer(profit_curve);
+                const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(profit_curve.strategyType);
+                const suggestedTarget = analyzer.suggestNewTarget(currentTarget, optimalTarget, profit_curve.strategyType);
+                return [optimalTarget, suggestedTarget];
+            }
+            else {
+                return [undefined, undefined];
+            }
+        }
+        else {
+            return [undefined, undefined];
+        }
+    }
+    createCurvesForAllMetrics(googleAdsClient, strategyType, currentTarget, points, metrics, initialParams) {
+        const curves = {};
+        metrics.forEach(metric => {
+            const [, dataMetric] = this.calculateValuePerMetric(googleAdsClient, strategyType, points, currentTarget, metric);
+            const curve = this.createAndValidateCurve(strategyType, dataMetric, metric, initialParams);
+            if (curve) {
+                curves[metric] = curve;
+            }
+        });
+        return curves;
+    }
+    calculateValuePerMetric(googleAdsClient, strategyType, points, currentTarget, metric) {
+        const targetValues = [];
+        let values = [];
+        if (points) {
+            points.forEach(point => {
+                const pTarget = googleAdsClient.getPointTarget(strategyType, point);
+                targetValues.push(pTarget);
+                try {
+                    values.push(this.calculateValue(point, metric));
+                }
+                catch (e) {
+                    console.error(`Skipping point due to error in metric calculation: ${e instanceof Error ? e.message : e}`);
+                }
+            });
+            const lowestValue = Math.min(...values);
+            if (lowestValue < 0) {
+                const valueToAdd = -lowestValue + 1;
+                values = values.map(num => num + valueToAdd);
+            }
+            const result = targetValues.map((target, i) => [target, values[i]]);
+            return [currentTarget, result];
+        }
+        return [currentTarget, []];
+    }
+    createAndValidateCurve(strategyType, data, metricName, initialParams) {
+        if (data && data.length >= 3) {
+            const curve = new Curve(strategyType, data, initialParams, metricName);
+            const rSquared = curve.getRSquared();
+            if (curve && rSquared !== null && !isNaN(rSquared) && rSquared > 0.8) {
+                return curve;
+            }
+        }
+        return null;
+    }
+    calculateValue(point, metric) {
+        const { costMicros, biddableConversionsValue, clicks, biddableConversions, impressions } = point;
+        let value;
+        switch (metric) {
+            case 'cost':
+                value = costMicros / 1e6;
+                break;
+            case 'profit':
+                value = biddableConversionsValue - (costMicros / 1e6);
+                break;
+            case 'conversionvalue':
+                value = biddableConversionsValue;
+                break;
+            case 'roas':
+                value = (costMicros > 0) ? (biddableConversionsValue / (costMicros / 1e6)) : 0;
+                break;
+            case 'clicks':
+                value = clicks;
+                break;
+            case 'conversions':
+                value = biddableConversions;
+                break;
+            case 'impressions':
+                value = impressions;
+                break;
+            default:
+                throw new Error(`Invalid metric requested: ${metric}`);
+        }
+        return value;
+    }
+}
+SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET = 'Suggestions';
+SuggestedTargetsSheet.METRIC_TO_OPTIMIZE_TO = 'profit';
+SuggestedTargetsSheet.METRICS = [
+    'profit',
+    'cost',
+    'conversionvalue',
+    'clicks',
+    'impressions',
+    'conversions',
+];
 
 const DATE_RANGES = ['LAST_30_DAYS'];
 const TARGETS_METRICS = [
@@ -928,9 +1473,11 @@ function initializeSheets() {
     const simulationsSheet = new SimulationsSheet(spreadsheetService);
     const targetsSheet = new TargetsSheet(spreadsheetService);
     const cidSheet = new CidSheet(spreadsheetService);
+    const suggestedTargetsSheet = new SuggestedTargetsSheet(spreadsheetService);
     targetsSheet.initializeSheet();
     simulationsSheet.initializeSheet();
     cidSheet.initializeSheet();
+    suggestedTargetsSheet.initializeSheet();
 }
 function updateTargets() {
     const targetsSheet = new TargetsSheet(spreadsheetService);
@@ -948,6 +1495,10 @@ function loadCids() {
     const cidSheet = new CidSheet(spreadsheetService);
     cidSheet.loadCids(new GoogleAdsClient(DEV_TOKEN, LOGIN_CUSTOMER_ID, []), LOGIN_CUSTOMER_ID);
 }
+function loadSuggestions() {
+    const suggestionsSheet = new SuggestedTargetsSheet(spreadsheetService);
+    suggestionsSheet.load(googleAdsClient());
+}
 function onOpen() {
     SpreadsheetApp.getUi()
         .createMenu('Ads Bidding')
@@ -958,6 +1509,7 @@ function onOpen() {
         .addItem('Update targets', 'updateTargets')
         .addSeparator()
         .addItem('Load Simulations', 'loadSimulations')
+        .addItem('Load Suggestions', 'loadSuggestions')
         .addToUi();
 }
 function main() {
@@ -970,4 +1522,5 @@ function main() {
     }));
     loadTargets();
     loadSimulations();
+    loadSuggestions();
 }

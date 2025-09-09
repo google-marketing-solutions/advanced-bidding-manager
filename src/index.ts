@@ -27,6 +27,7 @@ import {CidSheet, CustomerLabelsIndex} from './cid_sheet';
 import {GoogleAdsClient} from './google_ads_client';
 import {SimulationsSheet} from './simulations_sheet';
 import {SpreadsheetService} from './spreadsheet_service';
+import {SuggestedTargetsSheet} from './suggestions_sheet';
 import {TargetsSheet} from './targets_sheet';
 
 const spreadsheetService = new SpreadsheetService(SPREADSHEET_ID);
@@ -44,10 +45,12 @@ export function initializeSheets(): void {
   const simulationsSheet = new SimulationsSheet(spreadsheetService);
   const targetsSheet = new TargetsSheet(spreadsheetService);
   const cidSheet = new CidSheet(spreadsheetService);
+  const suggestedTargetsSheet = new SuggestedTargetsSheet(spreadsheetService);
 
   targetsSheet.initializeSheet();
   simulationsSheet.initializeSheet();
   cidSheet.initializeSheet();
+  suggestedTargetsSheet.initializeSheet();
 }
 
 /**
@@ -86,6 +89,13 @@ export function loadCids(): void {
 }
 
 /**
+ * Loads bidding suggestions from API to spreadsheet.
+ */
+export function loadSuggestions(): void {
+  const suggestionsSheet = new SuggestedTargetsSheet(spreadsheetService);
+  suggestionsSheet.load(googleAdsClient());
+}
+/**
  * Executed when opening the spreadsheet
  */
 export function onOpen(): void {
@@ -98,6 +108,7 @@ export function onOpen(): void {
     .addItem('Update targets', 'updateTargets')
     .addSeparator()
     .addItem('Load Simulations', 'loadSimulations')
+    .addItem('Load Suggestions', 'loadSuggestions')
     .addToUi();
 }
 
@@ -117,4 +128,5 @@ export function main(): void {
   );
   loadTargets();
   loadSimulations();
+  loadSuggestions();
 }
