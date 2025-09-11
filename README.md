@@ -10,6 +10,8 @@ This tool enables you to:
  * **Load Bidding Simulations** Retrieve the data points of bidding [simulations](https://support.google.com/google-ads/answer/2470105)
  in one Spreadsheet view, so that you can use these data points for target
  calculation
+ * **Load Bidding Targets Suggestions** Retrieve the data points of bidding [simulations](https://support.google.com/google-ads/answer/2470105)
+ and use these data points for optimal and suggested target calculation
 
 # Getting started
 
@@ -23,12 +25,14 @@ This tool comes in two versions:
        * Load Bidding Targets
        * Update Bidding Targets
        * Load Bidding Simulations
+       * Load Bidding Targets Suggestions
   2) Google Ads version as an Ads Script
      * No Ads API token nor GCP requirements
      * Functionalities:
        * Load Bidding Targets
        * Update Bidding Targets
        * Load Bidding Simulations
+       * Load Bidding Targets Suggestions
 
 **Step1:** For both version start by [creating a new spreadsheet](https://docs.google.com/spreadsheets/create)
 and make a note of the Spreadsheet ID that can be found from the Spreadsheet url
@@ -80,7 +84,7 @@ Note: In case you are upgrading from an earlier version, delete all sheets befor
  2. Use the **Ads Bidding** menu > **Load Customer Ids** menu item.
 
 It will fetch all customer ids under a given LOGIN_CUSTOMER_ID and populate the "Customers" sheet.
-This Customer Ids will be used for both Load Targets and Simulations.
+This Customer Ids will be used for Load Targets, Simulations and Suggestions.
 
 If you want to load only specific CIDs, add them in the Customer ID column of the Customers sheet.
 
@@ -110,6 +114,9 @@ const TARGETS_METRICS = [];
  6. Use the **Ads Bidding** menu > **Load Simulations** menu item.
     It will fetch all the bidding strategies simulations and populate the "Simulations" sheet.
 
+ 7. Use the **Ads Bidding** menu > **Load Suggestions** menu item.
+    It will fetch all the bidding strategies simulations and off those calculate and bidding targets suggestions and populate the "Suggestions" sheet.
+
 ## Option B. Run as Google Ads Script
 
 ### Create a new Ads Script
@@ -131,8 +138,8 @@ const CUSTOMER_IDS = ["YOUR-CUSTOMER-ID"];
 By default the script will load Bidding Targets and Simulations with each run.
 
 1. Run the script. It will fetch all your current bidding targets in the
-   "Targets" sheet and all the bidding strategies simulations and populate the
-   "Simulations" sheet.
+   "Targets" sheet, all the bidding strategies simulations and populate the
+   "Simulations" sheet and calculate suggested targets and populate the "Suggestions" sheet.
 
 2. Open the Spreadsheet, and navigate through the sheets.
 
@@ -158,6 +165,7 @@ You can change the sheet names by changing the lines:
 ```
 const TARGETS_SHEET = "Targets";
 const SIM_SHEET = "Simulations";
+const SUGGESTED_TARGETS_SHEET = 'Suggestions';
 const CID_SHEET = "Customers";
 ```
 
@@ -165,6 +173,19 @@ You can change the metrics and date ranges to include when loading bidding targe
 ```
 const DATE_RANGES = ["LAST_30_DAYS"];
 const TARGETS_METRICS = ["conversions", "conversions_value", "cost_micros", "average_cpc"];
+```
+
+You can change the metric towards which you want to optimize your bidding strategies to (by default is profit):
+```
+const METRIC_TO_OPTIMIZE_TO = 'profit';
+const METRICS = [
+    'profit',
+    'cost',
+    'conversionvalue',
+    'clicks',
+    'impressions',
+    'conversions',
+];
 ```
 
 # Disclaimer
