@@ -90,35 +90,31 @@ export class Curve {
       const lossBest = this.calculateLoss(data, best);
       const lossSecondWorst = this.calculateLoss(data, secondWorst);
 
-
       if (lossReflected < lossBest) {
         // Expansion
         const expanded = this.reflect(centroid, worst, 2);
         const lossExpanded = this.calculateLoss(data, expanded);
         const lossReflected = this.calculateLoss(data, reflected);
-        simplex[n] =
-            lossExpanded < lossReflected
-                ? expanded
-                : reflected;
-        } else if (lossReflected < lossSecondWorst) {
-            simplex[n] = reflected;
+        simplex[n] = lossExpanded < lossReflected ? expanded : reflected;
+      } else if (lossReflected < lossSecondWorst) {
+        simplex[n] = reflected;
+      } else {
+        // Contraction
+        const contractionFactor = 0.5;
+        let contracted;
+        if (lossReflected < lossWorst) {
+          contracted = this.reflect(centroid, worst, contractionFactor);
         } else {
-            // Contraction
-            const contractionFactor = 0.5;
-            let contracted;
-            if (lossReflected < lossWorst) {
-            contracted = this.reflect(centroid, worst, contractionFactor);
-            } else {
-            contracted = this.reflect(centroid, worst, -contractionFactor);
-            }
-            const lossContracted = this.calculateLoss(data, contracted);
-            if (lossContracted < lossWorst) {
-                simplex[n] = contracted;
-            } else {
-            // Shrink
-            this.shrink(simplex, best);
-            }
+          contracted = this.reflect(centroid, worst, -contractionFactor);
         }
+        const lossContracted = this.calculateLoss(data, contracted);
+        if (lossContracted < lossWorst) {
+          simplex[n] = contracted;
+        } else {
+          // Shrink
+          this.shrink(simplex, best);
+        }
+      }
 
       if (this.checkConvergence(simplex, this.tolerance, data)) {
         break;
@@ -136,7 +132,12 @@ export class Curve {
    * @return The predicted value, or undefined if the model is not fitted.
    */
   predictValue(target: number | undefined): number | undefined {
-    if (target === undefined || this.a === null || this.b === null || this.c === null) {
+    if (
+      target === undefined ||
+      this.a === null ||
+      this.b === null ||
+      this.c === null
+    ) {
       return undefined;
     }
 
@@ -163,7 +164,10 @@ export class Curve {
       if (predictedValue === undefined) {
         return null;
       }
-      return predictedValue * (this.b / target + (2 * this.c * Math.log(target)) / target);
+      return (
+        predictedValue *
+        (this.b / target + (2 * this.c * Math.log(target)) / target)
+      );
     } else {
       // Derivative of y = a*x^2 + b*x + c is 2*a*x + b
       return 2 * this.a * target + this.b;
@@ -180,9 +184,7 @@ export class Curve {
   private predictValuePower(troas: number): number {
     // y = exp(a + b*ln(x) + c*ln(x)^2)
     const logTroas = Math.log(troas);
-    return Math.exp(
-      this.a! + this.b! * logTroas + this.c! * logTroas ** 2
-    );
+    return Math.exp(this.a! + this.b! * logTroas + this.c! * logTroas ** 2);
   }
 
   /**
@@ -220,7 +222,7 @@ export class Curve {
       return 1; // Perfect fit if all y values are the same
     }
 
-    return 1 - (residualSumOfSquares / totalSumOfSquares);
+    return 1 - residualSumOfSquares / totalSumOfSquares;
   }
 
   /**
@@ -336,7 +338,11 @@ export class Curve {
    * @param factor The reflection factor (e.g., 1 for reflection, 2 for expansion).
    * @return The new, reflected point.
    */
-  private reflect(centroid: number[], point: number[], factor: number): number[] {
+  private reflect(
+    centroid: number[],
+    point: number[],
+    factor: number
+  ): number[] {
     return centroid.map((c, i) => c + factor * (c - point[i]));
   }
 
@@ -353,7 +359,9 @@ export class Curve {
   }
 
   private checkConvergence(
-    simplex: number[][], tolerance: number, data: Array<[number, number]>
+    simplex: number[][],
+    tolerance: number,
+    data: Array<[number, number]>
   ): boolean {
     // The simplex is sorted by loss, so simplex[0] is the best point.
     const bestLoss = this.calculateLoss(data, simplex[0]);

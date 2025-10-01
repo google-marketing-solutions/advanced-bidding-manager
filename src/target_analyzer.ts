@@ -35,9 +35,7 @@ export class TargetAnalyzer {
   /**
    * @param curve The fitted Curve object for the profit data.
    */
-  constructor(
-    private curve: Curve
-  ) {}
+  constructor(private curve: Curve) {}
 
   /**
    * Predicts the profit value for a given target using the fitted curve.
@@ -152,7 +150,10 @@ export class TargetAnalyzer {
       console.warn('Could not predict profit for target suggestion.');
       // Fallback to a simple small move of 5% if profit prediction fails.
       const fallbackMovePercentage = 0.05;
-      return currentTarget * (1 + Math.sign(optimalTarget - currentTarget) * fallbackMovePercentage);
+      return (
+        currentTarget *
+        (1 + Math.sign(optimalTarget - currentTarget) * fallbackMovePercentage)
+      );
     }
 
     const targetDifference = optimalTarget - currentTarget;
@@ -213,7 +214,9 @@ export class TargetAnalyzer {
    * @param strategyType The bidding strategy type.
    * @return The configuration for the optimization algorithm.
    */
-  private getOptimizationConfig(strategyType: StrategyType): OptimizationConfig {
+  private getOptimizationConfig(
+    strategyType: StrategyType
+  ): OptimizationConfig {
     if (strategyType === StrategyType.TARGET_ROAS) {
       return {
         initialTarget: 4.5,

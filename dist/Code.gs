@@ -117,6 +117,7 @@ class GoogleAdsClient {
         return results;
     }
     mutateTargets(cid, mutateOperations) {
+        Logger.log(mutateOperations);
         if (typeof AdsApp !== 'undefined') {
             return this.mutateTargetsAdsApp(cid, mutateOperations);
         }
@@ -180,7 +181,7 @@ class GoogleAdsClient {
                 results: [],
             };
             for (const r of responseContentText) {
-                if ("results" in r) {
+                if ('results' in r) {
                     streamResults.results.push(...r.results);
                 }
             }
@@ -258,7 +259,8 @@ class GoogleAdsClient {
     getEntityTarget(strategyType, entity) {
         if (strategyType === StrategyType.TARGET_ROAS ||
             strategyType === StrategyType.MAXIMIZE_CONVERSION_VALUE) {
-            if ('maximizeConversionValue' in entity && entity.maximizeConversionValue) {
+            if ('maximizeConversionValue' in entity &&
+                entity.maximizeConversionValue) {
                 return entity.maximizeConversionValue.targetRoas;
             }
             if ('targetRoas' in entity && entity.targetRoas) {
@@ -278,7 +280,8 @@ class GoogleAdsClient {
             if ('targetCpa' in entity && entity.targetCpa) {
                 return entity.targetCpa.targetCpaMicros / 1e6;
             }
-            if ('effectiveTargetCpaMicros' in entity && entity.effectiveTargetCpaMicros) {
+            if ('effectiveTargetCpaMicros' in entity &&
+                entity.effectiveTargetCpaMicros) {
                 return entity.effectiveTargetCpaMicros / 1e6;
             }
         }
@@ -591,10 +594,7 @@ class Curve {
                 const expanded = this.reflect(centroid, worst, 2);
                 const lossExpanded = this.calculateLoss(data, expanded);
                 const lossReflected = this.calculateLoss(data, reflected);
-                simplex[n] =
-                    lossExpanded < lossReflected
-                        ? expanded
-                        : reflected;
+                simplex[n] = lossExpanded < lossReflected ? expanded : reflected;
             }
             else if (lossReflected < lossSecondWorst) {
                 simplex[n] = reflected;
@@ -625,7 +625,10 @@ class Curve {
         this.rSquared = this.calculateRSquared(data);
     }
     predictValue(target) {
-        if (target === undefined || this.a === null || this.b === null || this.c === null) {
+        if (target === undefined ||
+            this.a === null ||
+            this.b === null ||
+            this.c === null) {
             return undefined;
         }
         if (this.strategyType === StrategyType.TARGET_ROAS) {
@@ -644,7 +647,8 @@ class Curve {
             if (predictedValue === undefined) {
                 return null;
             }
-            return predictedValue * (this.b / target + (2 * this.c * Math.log(target)) / target);
+            return (predictedValue *
+                (this.b / target + (2 * this.c * Math.log(target)) / target));
         }
         else {
             return 2 * this.a * target + this.b;
@@ -672,7 +676,7 @@ class Curve {
         if (totalSumOfSquares === 0) {
             return 1;
         }
-        return 1 - (residualSumOfSquares / totalSumOfSquares);
+        return 1 - residualSumOfSquares / totalSumOfSquares;
     }
     getRSquared() {
         return this.rSquared;
@@ -791,7 +795,8 @@ class TargetAnalyzer {
         if (profitTarget === undefined || profitOptimal === undefined) {
             console.warn('Could not predict profit for target suggestion.');
             const fallbackMovePercentage = 0.05;
-            return currentTarget * (1 + Math.sign(optimalTarget - currentTarget) * fallbackMovePercentage);
+            return (currentTarget *
+                (1 + Math.sign(optimalTarget - currentTarget) * fallbackMovePercentage));
         }
         const targetDifference = optimalTarget - currentTarget;
         const maxTargetMove = Math.abs(targetDifference) * maxMovePercentage;
@@ -863,9 +868,12 @@ class SuggestedTargetsSheet {
     }
     getSuggestedTargetsHeaders() {
         const headers = [];
-        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] = 'Bidding Strategy ID';
-        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = 'Bidding Strategy Name';
-        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = 'Bidding Strategy Type';
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] =
+            'Bidding Strategy ID';
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] =
+            'Bidding Strategy Name';
+        headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] =
+            'Bidding Strategy Type';
         headers[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = 'Current Target';
         headers[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = 'Suggested Target';
         headers[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = 'Optimal Target';
@@ -875,18 +883,27 @@ class SuggestedTargetsSheet {
         headers[SuggestedTargetsLabelsIndex.CURRENT_COST] = 'Current Cost';
         headers[SuggestedTargetsLabelsIndex.SUGGESTED_COST] = 'Suggested Cost';
         headers[SuggestedTargetsLabelsIndex.OPTIMAL_COST] = 'Optimal Cost';
-        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSION_VALUE] = 'Current Conversion Value';
-        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSION_VALUE] = 'Suggested Conversion Value';
-        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSION_VALUE] = 'Optimal Conversion Value';
-        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSIONS] = 'Current Conversions';
-        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSIONS] = 'Suggested Conversions';
-        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSIONS] = 'Optimal Conversions';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSION_VALUE] =
+            'Current Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSION_VALUE] =
+            'Suggested Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSION_VALUE] =
+            'Optimal Conversion Value';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSIONS] =
+            'Current Conversions';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSIONS] =
+            'Suggested Conversions';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSIONS] =
+            'Optimal Conversions';
         headers[SuggestedTargetsLabelsIndex.CURRENT_CLICKS] = 'Current Clicks';
         headers[SuggestedTargetsLabelsIndex.SUGGESTED_CLICKS] = 'Suggested Clicks';
         headers[SuggestedTargetsLabelsIndex.OPTIMAL_CLICKS] = 'Optimal Clicks';
-        headers[SuggestedTargetsLabelsIndex.CURRENT_IMPRESSIONS] = 'Current Impressions';
-        headers[SuggestedTargetsLabelsIndex.SUGGESTED_IMPRESSIONS] = 'Suggested Impressions';
-        headers[SuggestedTargetsLabelsIndex.OPTIMAL_IMPRESSIONS] = 'Optimal Impressions';
+        headers[SuggestedTargetsLabelsIndex.CURRENT_IMPRESSIONS] =
+            'Current Impressions';
+        headers[SuggestedTargetsLabelsIndex.SUGGESTED_IMPRESSIONS] =
+            'Suggested Impressions';
+        headers[SuggestedTargetsLabelsIndex.OPTIMAL_IMPRESSIONS] =
+            'Optimal Impressions';
         return headers;
     }
     load(googleAdsClient) {
@@ -957,8 +974,7 @@ class SuggestedTargetsSheet {
         }
         const curves = this.createCurvesForAllMetrics(googleAdsClient, simType, currentTarget, points, metrics, initialParams);
         const [, dataProfit] = this.calculateValuePerMetric(googleAdsClient, simType, points, currentTarget, metricToOptimizeTowards);
-        if (dataProfit &&
-            metricToOptimizeTowards in curves) {
+        if (dataProfit && metricToOptimizeTowards in curves) {
             const [optimalTarget, suggestedTarget] = this.getTargetSuggestions(currentTarget, dataProfit, curves);
             row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = suggestedTarget ?? '';
             row[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = optimalTarget ?? '';
@@ -986,7 +1002,7 @@ class SuggestedTargetsSheet {
     }
     getTargetSuggestions(currentTarget, dataProfit, curves) {
         if (dataProfit && dataProfit.length > 0) {
-            const profit_curve = curves["profit"];
+            const profit_curve = curves['profit'];
             if (profit_curve) {
                 const analyzer = new TargetAnalyzer(profit_curve);
                 const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(profit_curve.strategyType);
@@ -1047,20 +1063,21 @@ class SuggestedTargetsSheet {
         return null;
     }
     calculateValue(point, metric) {
-        const { costMicros, biddableConversionsValue, clicks, biddableConversions, impressions } = point;
+        const { costMicros, biddableConversionsValue, clicks, biddableConversions, impressions, } = point;
         let value;
         switch (metric) {
             case 'cost':
                 value = costMicros / 1e6;
                 break;
             case 'profit':
-                value = biddableConversionsValue - (costMicros / 1e6);
+                value = biddableConversionsValue - costMicros / 1e6;
                 break;
             case 'conversionvalue':
                 value = biddableConversionsValue;
                 break;
             case 'roas':
-                value = (costMicros > 0) ? (biddableConversionsValue / (costMicros / 1e6)) : 0;
+                value =
+                    costMicros > 0 ? biddableConversionsValue / (costMicros / 1e6) : 0;
                 break;
             case 'clicks':
                 value = clicks;
@@ -1122,7 +1139,8 @@ class TargetsSheet {
         const toUpdate = editData.filter(r => {
             if (r[TargetsLabelsIndex.NEW_TARGET] !==
                 r[TargetsLabelsIndex.CURRENT_TARGET]) {
-                return r[TargetsLabelsIndex.NEW_TARGET] !== '';
+                return (r[TargetsLabelsIndex.NEW_TARGET] !== '' &&
+                    Number(r[TargetsLabelsIndex.NEW_TARGET]) > 0);
             }
             return false;
         });

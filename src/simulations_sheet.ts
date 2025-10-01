@@ -161,8 +161,7 @@ export class SimulationsSheet {
   private getStrategySimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const simulations =
-      googleAdsClient.fetchBiddingStrategySimulations();
+    const simulations = googleAdsClient.fetchBiddingStrategySimulations();
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.biddingStrategySimulation;
@@ -186,8 +185,7 @@ export class SimulationsSheet {
   private getCampaignSimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const simulations =
-      googleAdsClient.fetchCampaignSimulations();
+    const simulations = googleAdsClient.fetchCampaignSimulations();
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.campaignSimulation;
@@ -209,8 +207,7 @@ export class SimulationsSheet {
   private getAdGroupSimulations(
     googleAdsClient: GoogleAdsClient
   ): Array<Array<string | number>> {
-    const simulations =
-      googleAdsClient.fetchAdGroupSimulations();
+    const simulations = googleAdsClient.fetchAdGroupSimulations();
     const apiRows: Array<Array<string | number>> = [];
     for (const s of simulations) {
       const sim = s.adGroupSimulation;

@@ -89,97 +89,101 @@ describe('SimulationsSheet', () => {
   });
 
   describe('load', () => {
-    const mockStrategySim: BiddingStrategySimulationResponse[] = [{
-          biddingStrategySimulation: {
-            biddingStrategyId: '123',
-            type: StrategyType.TARGET_ROAS,
-            startDate: '2023-01-01',
-            endDate: '2023-01-31',
-            targetRoasPointList: {
-              points: [
-                {
-                  targetRoas: 0.5,
-                  biddableConversions: 10,
-                  biddableConversionsValue: 500,
-                  clicks: 100,
-                  costMicros: 1000000,
-                  impressions: 10000,
-                  topSlotImpressions: 1000,
-                },
-              ],
-            },
+    const mockStrategySim: BiddingStrategySimulationResponse[] = [
+      {
+        biddingStrategySimulation: {
+          biddingStrategyId: '123',
+          type: StrategyType.TARGET_ROAS,
+          startDate: '2023-01-01',
+          endDate: '2023-01-31',
+          targetRoasPointList: {
+            points: [
+              {
+                targetRoas: 0.5,
+                biddableConversions: 10,
+                biddableConversionsValue: 500,
+                clicks: 100,
+                costMicros: 1000000,
+                impressions: 10000,
+                topSlotImpressions: 1000,
+              },
+            ],
           },
-          biddingStrategy: {
-            resourceName: 'customers/1/biddingStrategies/123',
-            type: StrategyType.TARGET_ROAS,
-            name: 'Test Strategy',
-            targetRoas: {targetRoas: 0.4},
-          },
-          customer: {descriptiveName: 'Test Customer'},
         },
-      ];
+        biddingStrategy: {
+          resourceName: 'customers/1/biddingStrategies/123',
+          type: StrategyType.TARGET_ROAS,
+          name: 'Test Strategy',
+          targetRoas: {targetRoas: 0.4},
+        },
+        customer: {descriptiveName: 'Test Customer'},
+      },
+    ];
     const mockCampaignSim: CampaignSimulationResponse[] = [
-        {
-          campaignSimulation: {
-            campaignId: '456',
-            type: StrategyType.TARGET_ROAS,
-            startDate: '2023-02-01',
-            endDate: '2023-02-28',
-            targetRoasPointList: {
-              points: [{
-                  targetRoas: 0.8,
-                  biddableConversions: 20,
-                  biddableConversionsValue: 1000,
-                  clicks: 200,
-                  costMicros: 2000000,
-                  impressions: 20000,
-                  topSlotImpressions: 2000,
-                },
-              ],
-            },
+      {
+        campaignSimulation: {
+          campaignId: '456',
+          type: StrategyType.TARGET_ROAS,
+          startDate: '2023-02-01',
+          endDate: '2023-02-28',
+          targetRoasPointList: {
+            points: [
+              {
+                targetRoas: 0.8,
+                biddableConversions: 20,
+                biddableConversionsValue: 1000,
+                clicks: 200,
+                costMicros: 2000000,
+                impressions: 20000,
+                topSlotImpressions: 2000,
+              },
+            ],
           },
-          campaign: {
-            resourceName: 'customers/1/campaigns/456',
-            name: 'Test Campaign',
-            biddingStrategyType: StrategyType.MAXIMIZE_CONVERSION_VALUE,
-            maximizeConversionValue: {targetRoas: 0.7},
-          },
-          customer: {descriptiveName: 'Test Customer'},
         },
-      ];
+        campaign: {
+          resourceName: 'customers/1/campaigns/456',
+          name: 'Test Campaign',
+          biddingStrategyType: StrategyType.MAXIMIZE_CONVERSION_VALUE,
+          maximizeConversionValue: {targetRoas: 0.7},
+        },
+        customer: {descriptiveName: 'Test Customer'},
+      },
+    ];
     const mockAdGroupSim: AdGroupSimulationResponse[] = [
-        {
-          adGroupSimulation: {
-            adGroupId: '789',
-            type: StrategyType.TARGET_CPA,
-            startDate: '2023-03-01',
-            endDate: '2023-03-31',
-            targetCpaPointList: {
-              points: [
-                {
-                  targetCpaMicros: 15000000,
-                  biddableConversions: 50,
-                  biddableConversionsValue: 2000,
-                  clicks: 500,
-                  costMicros: 5000000,
-                  impressions: 50000,
-                  topSlotImpressions: 5000,
-                },
-              ],
-            },
+      {
+        adGroupSimulation: {
+          adGroupId: '789',
+          type: StrategyType.TARGET_CPA,
+          startDate: '2023-03-01',
+          endDate: '2023-03-31',
+          targetCpaPointList: {
+            points: [
+              {
+                targetCpaMicros: 15000000,
+                biddableConversions: 50,
+                biddableConversionsValue: 2000,
+                clicks: 500,
+                costMicros: 5000000,
+                impressions: 50000,
+                topSlotImpressions: 5000,
+              },
+            ],
           },
-          adGroup: {
-            resourceName: 'customers/1/adGroups/789',
-            name: 'Test Ad Group',
-            effectiveTargetCpaMicros: 12000000,
-          },
-          customer: {descriptiveName: 'Test Customer'},
         },
-      ];
+        adGroup: {
+          resourceName: 'customers/1/adGroups/789',
+          name: 'Test Ad Group',
+          effectiveTargetCpaMicros: 12000000,
+        },
+        customer: {descriptiveName: 'Test Customer'},
+      },
+    ];
 
     it('should correctly process and append bidding strategy simulations', () => {
       // Arrange
-      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(mockStrategySim);
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(
+        mockStrategySim
+      );
       mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
       mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
       mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.4);
@@ -206,7 +210,9 @@ describe('SimulationsSheet', () => {
     it('should correctly process and append campaign simulations', () => {
       // Arrange
       mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue([]);
-      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue(mockCampaignSim);
+      mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue(
+        mockCampaignSim
+      );
       mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
 
       mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.7);
@@ -229,7 +235,9 @@ describe('SimulationsSheet', () => {
       // Arrange
       mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue([]);
       mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
-      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue(mockAdGroupSim);
+      mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue(
+        mockAdGroupSim
+      );
 
       mockGoogleAdsClient.getEntityTarget.mockReturnValue(12);
 
@@ -250,7 +258,9 @@ describe('SimulationsSheet', () => {
 
     it('should append formulas after loading data', () => {
       // Arrange
-      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(mockStrategySim);
+      mockGoogleAdsClient.fetchBiddingStrategySimulations.mockReturnValue(
+        mockStrategySim
+      );
       mockGoogleAdsClient.fetchCampaignSimulations.mockReturnValue([]);
       mockGoogleAdsClient.fetchAdGroupSimulations.mockReturnValue([]);
       mockGoogleAdsClient.getEntityTarget.mockReturnValue(0.4);

@@ -93,7 +93,10 @@ export class TargetsSheet {
         r[TargetsLabelsIndex.NEW_TARGET] !==
         r[TargetsLabelsIndex.CURRENT_TARGET]
       ) {
-        return r[TargetsLabelsIndex.NEW_TARGET] !== '';
+        return (
+          r[TargetsLabelsIndex.NEW_TARGET] !== '' &&
+          Number(r[TargetsLabelsIndex.NEW_TARGET]) > 0
+        );
       }
       return false;
     });

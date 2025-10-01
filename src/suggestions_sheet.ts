@@ -78,7 +78,9 @@ export class SuggestedTargetsSheet {
    */
   initializeSheet(): void {
     this.spreadsheetService.insertSheet(
-      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, this.getSuggestedTargetsHeaders());
+      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET,
+      this.getSuggestedTargetsHeaders()
+    );
   }
 
   /**
@@ -87,9 +89,12 @@ export class SuggestedTargetsSheet {
    */
   private getSuggestedTargetsHeaders(): string[] {
     const headers: string[] = [];
-    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] = 'Bidding Strategy ID';
-    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = 'Bidding Strategy Name';
-    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = 'Bidding Strategy Type';
+    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_ID] =
+      'Bidding Strategy ID';
+    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] =
+      'Bidding Strategy Name';
+    headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] =
+      'Bidding Strategy Type';
     headers[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = 'Current Target';
     headers[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = 'Suggested Target';
     headers[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = 'Optimal Target';
@@ -99,18 +104,27 @@ export class SuggestedTargetsSheet {
     headers[SuggestedTargetsLabelsIndex.CURRENT_COST] = 'Current Cost';
     headers[SuggestedTargetsLabelsIndex.SUGGESTED_COST] = 'Suggested Cost';
     headers[SuggestedTargetsLabelsIndex.OPTIMAL_COST] = 'Optimal Cost';
-    headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSION_VALUE] = 'Current Conversion Value';
-    headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSION_VALUE] = 'Suggested Conversion Value';
-    headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSION_VALUE] = 'Optimal Conversion Value';
-    headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSIONS] = 'Current Conversions';
-    headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSIONS] = 'Suggested Conversions';
-    headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSIONS] = 'Optimal Conversions';
+    headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSION_VALUE] =
+      'Current Conversion Value';
+    headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSION_VALUE] =
+      'Suggested Conversion Value';
+    headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSION_VALUE] =
+      'Optimal Conversion Value';
+    headers[SuggestedTargetsLabelsIndex.CURRENT_CONVERSIONS] =
+      'Current Conversions';
+    headers[SuggestedTargetsLabelsIndex.SUGGESTED_CONVERSIONS] =
+      'Suggested Conversions';
+    headers[SuggestedTargetsLabelsIndex.OPTIMAL_CONVERSIONS] =
+      'Optimal Conversions';
     headers[SuggestedTargetsLabelsIndex.CURRENT_CLICKS] = 'Current Clicks';
     headers[SuggestedTargetsLabelsIndex.SUGGESTED_CLICKS] = 'Suggested Clicks';
     headers[SuggestedTargetsLabelsIndex.OPTIMAL_CLICKS] = 'Optimal Clicks';
-    headers[SuggestedTargetsLabelsIndex.CURRENT_IMPRESSIONS] = 'Current Impressions';
-    headers[SuggestedTargetsLabelsIndex.SUGGESTED_IMPRESSIONS] = 'Suggested Impressions';
-    headers[SuggestedTargetsLabelsIndex.OPTIMAL_IMPRESSIONS] = 'Optimal Impressions';
+    headers[SuggestedTargetsLabelsIndex.CURRENT_IMPRESSIONS] =
+      'Current Impressions';
+    headers[SuggestedTargetsLabelsIndex.SUGGESTED_IMPRESSIONS] =
+      'Suggested Impressions';
+    headers[SuggestedTargetsLabelsIndex.OPTIMAL_IMPRESSIONS] =
+      'Optimal Impressions';
     return headers;
   }
 
@@ -120,28 +134,44 @@ export class SuggestedTargetsSheet {
    */
   load(googleAdsClient: GoogleAdsClient): void {
     this.spreadsheetService.clearSheet(
-      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET);
+      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET
+    );
 
     const metricToOptimizeTowards = SuggestedTargetsSheet.METRIC_TO_OPTIMIZE_TO;
     const metrics = SuggestedTargetsSheet.METRICS;
 
     // Fetch and append strategy suggestions
     const portfolioSuggestions = this.getStrategySuggestions(
-      googleAdsClient, metricToOptimizeTowards, metrics);
+      googleAdsClient,
+      metricToOptimizeTowards,
+      metrics
+    );
     this.spreadsheetService.appendRows(
-      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, portfolioSuggestions);
+      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET,
+      portfolioSuggestions
+    );
 
     // Fetch and append campaign suggestions
     const campaignSuggestions = this.getCampaignSuggestions(
-      googleAdsClient, metricToOptimizeTowards, metrics);
+      googleAdsClient,
+      metricToOptimizeTowards,
+      metrics
+    );
     this.spreadsheetService.appendRows(
-      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, campaignSuggestions);
+      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET,
+      campaignSuggestions
+    );
 
     // Fetch and append ad group suggestions
     const adGroupSuggestions = this.getAdGroupSuggestions(
-      googleAdsClient, metricToOptimizeTowards, metrics);
+      googleAdsClient,
+      metricToOptimizeTowards,
+      metrics
+    );
     this.spreadsheetService.appendRows(
-      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET, adGroupSuggestions);
+      SuggestedTargetsSheet.SUGGESTED_TARGETS_SHEET,
+      adGroupSuggestions
+    );
   }
 
   /**
@@ -162,7 +192,12 @@ export class SuggestedTargetsSheet {
       const simulation = s.biddingStrategySimulation;
       const entity = s.biddingStrategy;
       const row = this.generateSuggestionsRow(
-        googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+        googleAdsClient,
+        simulation,
+        entity,
+        metricToOptimizeTowards,
+        metrics
+      );
       sheetRows.push(row);
     }
     return sheetRows;
@@ -186,7 +221,12 @@ export class SuggestedTargetsSheet {
       const simulation = s.campaignSimulation;
       const entity = s.campaign;
       const row = this.generateSuggestionsRow(
-        googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+        googleAdsClient,
+        simulation,
+        entity,
+        metricToOptimizeTowards,
+        metrics
+      );
 
       sheetRows.push(row);
     }
@@ -211,7 +251,12 @@ export class SuggestedTargetsSheet {
       const simulation = s.adGroupSimulation;
       const entity = s.adGroup;
       const row = this.generateSuggestionsRow(
-        googleAdsClient, simulation, entity, metricToOptimizeTowards, metrics);
+        googleAdsClient,
+        simulation,
+        entity,
+        metricToOptimizeTowards,
+        metrics
+      );
       sheetRows.push(row);
     }
     return sheetRows;
@@ -246,7 +291,8 @@ export class SuggestedTargetsSheet {
     const currentTarget = googleAdsClient.getEntityTarget(simType, entity) ?? 0;
     row[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = currentTarget ?? '';
     const currentFilledInCellsCount = 5;
-    const remainingCellsCount = this.getSuggestedTargetsHeaders().length - currentFilledInCellsCount;
+    const remainingCellsCount =
+      this.getSuggestedTargetsHeaders().length - currentFilledInCellsCount;
     const points = googleAdsClient.getPoints(simulation);
     if (!points) {
       row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] =
@@ -267,17 +313,28 @@ export class SuggestedTargetsSheet {
     }
 
     const curves = this.createCurvesForAllMetrics(
-      googleAdsClient, simType, currentTarget, points, metrics, initialParams);
+      googleAdsClient,
+      simType,
+      currentTarget,
+      points,
+      metrics,
+      initialParams
+    );
 
     const [, dataProfit] = this.calculateValuePerMetric(
-      googleAdsClient, simType, points, currentTarget, metricToOptimizeTowards);
+      googleAdsClient,
+      simType,
+      points,
+      currentTarget,
+      metricToOptimizeTowards
+    );
 
-    if (
-      dataProfit &&
-      metricToOptimizeTowards in curves
-    ) {
+    if (dataProfit && metricToOptimizeTowards in curves) {
       const [optimalTarget, suggestedTarget] = this.getTargetSuggestions(
-        currentTarget, dataProfit, curves);
+        currentTarget,
+        dataProfit,
+        curves
+      );
 
       row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = suggestedTarget ?? '';
       row[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = optimalTarget ?? '';
@@ -285,13 +342,13 @@ export class SuggestedTargetsSheet {
       metrics.forEach(metric => {
         if (metric in curves) {
           const curve = curves[metric];
-          const currentActualValue =
-            curve.predictValue(currentTarget) ?? 'N/A';
+          const currentActualValue = curve.predictValue(currentTarget) ?? 'N/A';
           const suggestedActualValue =
             curve.predictValue(suggestedTarget) ?? 'N/A';
-          const optimalActualValue =
-            curve.predictValue(optimalTarget) ?? 'N/A';
-          row.push(...[currentActualValue, suggestedActualValue, optimalActualValue]);
+          const optimalActualValue = curve.predictValue(optimalTarget) ?? 'N/A';
+          row.push(
+            ...[currentActualValue, suggestedActualValue, optimalActualValue]
+          );
         } else {
           row.push(...['N/A', 'N/A', 'N/A']);
         }
@@ -319,12 +376,17 @@ export class SuggestedTargetsSheet {
     curves: {[key: string]: Curve}
   ): [number | undefined, number | undefined] {
     if (dataProfit && dataProfit.length > 0) {
-      const profit_curve = curves["profit"];
-      if(profit_curve){
+      const profit_curve = curves['profit'];
+      if (profit_curve) {
         const analyzer = new TargetAnalyzer(profit_curve);
-        const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(profit_curve.strategyType);
+        const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(
+          profit_curve.strategyType
+        );
         const suggestedTarget = analyzer.suggestNewTarget(
-            currentTarget, optimalTarget, profit_curve.strategyType);
+          currentTarget,
+          optimalTarget,
+          profit_curve.strategyType
+        );
         return [optimalTarget, suggestedTarget];
       } else {
         return [undefined, undefined];
@@ -355,8 +417,18 @@ export class SuggestedTargetsSheet {
     const curves: {[key: string]: Curve} = {};
     metrics.forEach(metric => {
       const [, dataMetric] = this.calculateValuePerMetric(
-        googleAdsClient, strategyType, points, currentTarget, metric);
-      const curve = this.createAndValidateCurve(strategyType, dataMetric, metric, initialParams);
+        googleAdsClient,
+        strategyType,
+        points,
+        currentTarget,
+        metric
+      );
+      const curve = this.createAndValidateCurve(
+        strategyType,
+        dataMetric,
+        metric,
+        initialParams
+      );
       if (curve) {
         curves[metric] = curve;
       }
@@ -390,7 +462,11 @@ export class SuggestedTargetsSheet {
         try {
           values.push(this.calculateValue(point, metric));
         } catch (e) {
-          console.error(`Skipping point due to error in metric calculation: ${e instanceof Error ? e.message : e}`);
+          console.error(
+            `Skipping point due to error in metric calculation: ${
+              e instanceof Error ? e.message : e
+            }`
+          );
         }
       });
 
@@ -421,11 +497,10 @@ export class SuggestedTargetsSheet {
     metricName: string,
     initialParams: number[]
   ): Curve | null {
-
     if (data && data.length >= 3) {
       const curve = new Curve(strategyType, data, initialParams, metricName);
       const rSquared = curve.getRSquared();
-      if (curve && rSquared !== null && !isNaN(rSquared) && rSquared> 0.8) {
+      if (curve && rSquared !== null && !isNaN(rSquared) && rSquared > 0.8) {
         return curve;
       }
     }
@@ -440,20 +515,27 @@ export class SuggestedTargetsSheet {
    * @throws An error if an invalid metric is requested.
    */
   private calculateValue(point: SimulationPoint, metric: string): number {
-    const { costMicros, biddableConversionsValue,clicks,biddableConversions,impressions } = point;
+    const {
+      costMicros,
+      biddableConversionsValue,
+      clicks,
+      biddableConversions,
+      impressions,
+    } = point;
     let value;
     switch (metric) {
       case 'cost':
         value = costMicros / 1e6;
         break;
       case 'profit':
-        value = biddableConversionsValue - (costMicros / 1e6);
+        value = biddableConversionsValue - costMicros / 1e6;
         break;
       case 'conversionvalue':
         value = biddableConversionsValue;
         break;
       case 'roas':
-        value = (costMicros > 0) ? (biddableConversionsValue / (costMicros / 1e6)) : 0;
+        value =
+          costMicros > 0 ? biddableConversionsValue / (costMicros / 1e6) : 0;
         break;
       case 'clicks':
         value = clicks;

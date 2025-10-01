@@ -322,6 +322,7 @@ export class GoogleAdsClient {
     cid: string,
     mutateOperations: GoogleAds.MutateOperation[]
   ): void {
+    Logger.log(mutateOperations);
     if (typeof AdsApp !== 'undefined') {
       return this.mutateTargetsAdsApp(cid, mutateOperations);
     }
@@ -414,7 +415,7 @@ export class GoogleAdsClient {
         results: [],
       };
       for (const r of responseContentText) {
-        if ("results" in r) {
+        if ('results' in r) {
           streamResults.results.push(...r.results);
         }
       }
@@ -522,7 +523,10 @@ export class GoogleAdsClient {
       strategyType === StrategyType.TARGET_ROAS ||
       strategyType === StrategyType.MAXIMIZE_CONVERSION_VALUE
     ) {
-      if ('maximizeConversionValue' in entity && entity.maximizeConversionValue) {
+      if (
+        'maximizeConversionValue' in entity &&
+        entity.maximizeConversionValue
+      ) {
         return entity.maximizeConversionValue.targetRoas;
       }
       if ('targetRoas' in entity && entity.targetRoas) {
@@ -544,7 +548,10 @@ export class GoogleAdsClient {
       if ('targetCpa' in entity && entity.targetCpa) {
         return entity.targetCpa.targetCpaMicros / 1e6;
       }
-      if ('effectiveTargetCpaMicros' in entity && entity.effectiveTargetCpaMicros) {
+      if (
+        'effectiveTargetCpaMicros' in entity &&
+        entity.effectiveTargetCpaMicros
+      ) {
         return entity.effectiveTargetCpaMicros / 1e6;
       }
     }
