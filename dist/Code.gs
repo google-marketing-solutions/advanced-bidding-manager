@@ -973,17 +973,24 @@ class SuggestedTargetsSheet {
             initialParams = [0.1, 1, 25];
         }
         const curves = this.createCurvesForAllMetrics(googleAdsClient, simType, currentTarget, points, metrics, initialParams);
-        const [, dataProfit] = this.calculateValuePerMetric(googleAdsClient, simType, points, currentTarget, metricToOptimizeTowards);
-        if (dataProfit && metricToOptimizeTowards in curves) {
-            const [optimalTarget, suggestedTarget] = this.getTargetSuggestions(currentTarget, dataProfit, curves);
+        const [, dataMetric] = this.calculateValuePerMetric(googleAdsClient, simType, points, currentTarget, metricToOptimizeTowards);
+        if (dataMetric && metricToOptimizeTowards in curves) {
+            const [optimalTarget, suggestedTarget] = this.getTargetSuggestions(currentTarget, dataMetric, curves, metricToOptimizeTowards);
             row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = suggestedTarget ?? '';
             row[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = optimalTarget ?? '';
             metrics.forEach(metric => {
                 if (metric in curves) {
-                    const curve = curves[metric];
-                    const currentActualValue = curve.predictValue(currentTarget) ?? 'N/A';
-                    const suggestedActualValue = curve.predictValue(suggestedTarget) ?? 'N/A';
-                    const optimalActualValue = curve.predictValue(optimalTarget) ?? 'N/A';
+                    const { curve, offset } = curves[metric];
+                    const getOriginalValue = (target) => {
+                        const predictedValue = curve.predictValue(target);
+                        if (predictedValue === undefined || predictedValue === null) {
+                            return 'N/A';
+                        }
+                        return predictedValue - offset;
+                    };
+                    const currentActualValue = getOriginalValue(currentTarget) ?? 'N/A';
+                    const suggestedActualValue = getOriginalValue(suggestedTarget) ?? 'N/A';
+                    const optimalActualValue = getOriginalValue(optimalTarget) ?? 'N/A';
                     row.push(...[currentActualValue, suggestedActualValue, optimalActualValue]);
                 }
                 else {
@@ -1000,13 +1007,13 @@ class SuggestedTargetsSheet {
             return row;
         }
     }
-    getTargetSuggestions(currentTarget, dataProfit, curves) {
-        if (dataProfit && dataProfit.length > 0) {
-            const profit_curve = curves['profit'];
-            if (profit_curve) {
-                const analyzer = new TargetAnalyzer(profit_curve);
-                const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(profit_curve.strategyType);
-                const suggestedTarget = analyzer.suggestNewTarget(currentTarget, optimalTarget, profit_curve.strategyType);
+    getTargetSuggestions(currentTarget, dataMetric, curves, metricToOptimizeTowards = SuggestedTargetsSheet.METRIC_TO_OPTIMIZE_TO) {
+        if (dataMetric && dataMetric.length > 0) {
+            const { curve } = curves[metricToOptimizeTowards];
+            if (curve) {
+                const analyzer = new TargetAnalyzer(curve);
+                const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(curve.strategyType);
+                const suggestedTarget = analyzer.suggestNewTarget(currentTarget, optimalTarget, curve.strategyType);
                 return [optimalTarget, suggestedTarget];
             }
             else {
@@ -1020,10 +1027,10 @@ class SuggestedTargetsSheet {
     createCurvesForAllMetrics(googleAdsClient, strategyType, currentTarget, points, metrics, initialParams) {
         const curves = {};
         metrics.forEach(metric => {
-            const [, dataMetric] = this.calculateValuePerMetric(googleAdsClient, strategyType, points, currentTarget, metric);
+            const [, dataMetric, valueToAdd] = this.calculateValuePerMetric(googleAdsClient, strategyType, points, currentTarget, metric);
             const curve = this.createAndValidateCurve(strategyType, dataMetric, metric, initialParams);
             if (curve) {
-                curves[metric] = curve;
+                curves[metric] = { curve, offset: valueToAdd };
             }
         });
         return curves;
@@ -1032,6 +1039,7 @@ class SuggestedTargetsSheet {
         const targetValues = [];
         let values = [];
         if (points) {
+            let valueToAdd = 0;
             points.forEach(point => {
                 const pTarget = googleAdsClient.getPointTarget(strategyType, point);
                 targetValues.push(pTarget);
@@ -1044,13 +1052,13 @@ class SuggestedTargetsSheet {
             });
             const lowestValue = Math.min(...values);
             if (lowestValue < 0) {
-                const valueToAdd = -lowestValue + 1;
+                valueToAdd = -lowestValue + 1;
                 values = values.map(num => num + valueToAdd);
             }
             const result = targetValues.map((target, i) => [target, values[i]]);
-            return [currentTarget, result];
+            return [currentTarget, result, valueToAdd];
         }
-        return [currentTarget, []];
+        return [currentTarget, [], 0];
     }
     createAndValidateCurve(strategyType, data, metricName, initialParams) {
         if (data && data.length >= 3) {
