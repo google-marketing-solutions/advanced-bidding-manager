@@ -147,10 +147,11 @@ class GoogleAdsClient {
         }
     }
     formatCid(cid) {
-        if (cid.length !== 10 || !/^\d+$/.test(cid)) {
+        const stringCid = String(cid);
+        if (stringCid.length !== 10 || !/^\d+$/.test(stringCid)) {
             throw new Error(`Invalid CID '${cid}'. Expected a 10-digit string.`);
         }
-        return [cid.slice(0, 3), cid.slice(3, 6), cid.slice(6, 10)].join('-');
+        return [stringCid.slice(0, 3), stringCid.slice(3, 6), stringCid.slice(6, 10)].join('-');
     }
     callApi(url, data) {
         const headers = {};
