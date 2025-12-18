@@ -336,7 +336,13 @@ export class SuggestedTargetsSheet {
         curves,
         metricToOptimizeTowards
       );
-
+      if(optimalTarget === undefined){
+        row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] =
+          'ERROR: No points found';
+        const emptyRow = new Array(remainingCellsCount).fill('No data points');
+        row.push(...emptyRow);
+        return row;
+      }
       row[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = suggestedTarget ?? '';
       row[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = optimalTarget ?? '';
 
@@ -392,18 +398,17 @@ export class SuggestedTargetsSheet {
         const optimalTarget = analyzer.findOptimalTargetForProfitUnconstrained(
           curve.strategyType
         );
-        const suggestedTarget = analyzer.suggestNewTarget(
-          currentTarget,
-          optimalTarget,
-          curve.strategyType
-        );
-        return [optimalTarget, suggestedTarget];
-      } else {
-        return [undefined, undefined];
+        if(optimalTarget){
+          const suggestedTarget = analyzer.suggestNewTarget(
+            currentTarget,
+            optimalTarget,
+            curve.strategyType
+          );
+          return [optimalTarget, suggestedTarget];
+        }
       }
-    } else {
-      return [undefined, undefined];
     }
+    return [undefined, undefined];
   }
 
   /**

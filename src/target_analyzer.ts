@@ -49,9 +49,9 @@ export class TargetAnalyzer {
   /**
    * Finds the optimal target for maximizing profit using gradient ascent.
    * @param strategyType The bidding strategy type.
-   * @return The calculated optimal target value.
+   * @return The calculated optimal target value or undefined.
    */
-  findOptimalTargetForProfitUnconstrained(strategyType: StrategyType): number {
+  findOptimalTargetForProfitUnconstrained(strategyType: StrategyType): number | undefined {
     const {
       initialTarget,
       maxTarget,
@@ -86,7 +86,7 @@ export class TargetAnalyzer {
         console.error(
           'Gradient could not be calculated. Aborting optimization.'
         );
-        return target;
+        return undefined;
       }
 
       // The absolute value of the gradient, used to normalize the gradient vector.
@@ -120,7 +120,7 @@ export class TargetAnalyzer {
     console.warn(
       `Optimization did not converge after ${maxIterations} iterations.`
     );
-    return target;
+    return undefined;
   }
 
   /**
