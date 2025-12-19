@@ -34,26 +34,28 @@ export enum SuggestedTargetsLabelsIndex {
   BIDDING_STRATEGY_NAME = 1,
   BIDDING_STRATEGY_TYPE = 2,
   CURRENT_TARGET = 3,
-  SUGGESTED_TARGET = 4,
-  OPTIMAL_TARGET = 5,
-  CURRENT_PROFIT = 6,
-  SUGGESTED_PROFIT = 7,
-  OPTIMAL_PROFIT = 8,
-  CURRENT_COST = 9,
-  SUGGESTED_COST = 10,
-  OPTIMAL_COST = 11,
-  CURRENT_CONVERSION_VALUE = 12,
-  SUGGESTED_CONVERSION_VALUE = 13,
-  OPTIMAL_CONVERSION_VALUE = 14,
-  CURRENT_CLICKS = 15,
-  SUGGESTED_CLICKS = 16,
-  OPTIMAL_CLICKS = 17,
-  CURRENT_IMPRESSIONS = 18,
-  SUGGESTED_IMPRESSIONS = 19,
-  OPTIMAL_IMPRESSIONS = 20,
-  CURRENT_CONVERSIONS = 21,
-  SUGGESTED_CONVERSIONS = 22,
-  OPTIMAL_CONVERSIONS = 23,
+  SIMULATIONS_START_DATE = 4,
+  SIMULATIONS_END_DATE = 5,
+  SUGGESTED_TARGET = 6,
+  OPTIMAL_TARGET = 7,
+  CURRENT_PROFIT = 8,
+  SUGGESTED_PROFIT = 9,
+  OPTIMAL_PROFIT = 10,
+  CURRENT_COST = 11,
+  SUGGESTED_COST = 12,
+  OPTIMAL_COST = 13,
+  CURRENT_CONVERSION_VALUE = 14,
+  SUGGESTED_CONVERSION_VALUE = 15,
+  OPTIMAL_CONVERSION_VALUE = 16,
+  CURRENT_CLICKS = 17,
+  SUGGESTED_CLICKS = 18,
+  OPTIMAL_CLICKS = 19,
+  CURRENT_IMPRESSIONS = 20,
+  SUGGESTED_IMPRESSIONS = 21,
+  OPTIMAL_IMPRESSIONS = 22,
+  CURRENT_CONVERSIONS = 23,
+  SUGGESTED_CONVERSIONS = 24,
+  OPTIMAL_CONVERSIONS = 25,
 }
 
 /**
@@ -95,6 +97,10 @@ export class SuggestedTargetsSheet {
       'Bidding Strategy Name';
     headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] =
       'Bidding Strategy Type';
+    headers[SuggestedTargetsLabelsIndex.SIMULATIONS_START_DATE] =
+      'Simulation Start Date';
+    headers[SuggestedTargetsLabelsIndex.SIMULATIONS_END_DATE] =
+      'Simulation End Date';
     headers[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = 'Current Target';
     headers[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = 'Suggested Target';
     headers[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = 'Optimal Target';
@@ -288,9 +294,11 @@ export class SuggestedTargetsSheet {
     row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = entity.name;
     const simType = simulation.type;
     row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = simType;
+    row[SuggestedTargetsLabelsIndex.SIMULATIONS_START_DATE] = simulation.startDate;
+    row[SuggestedTargetsLabelsIndex.SIMULATIONS_END_DATE] = simulation.endDate;
     const currentTarget = googleAdsClient.getEntityTarget(simType, entity) ?? 0;
     row[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = currentTarget ?? '';
-    const currentFilledInCellsCount = 5;
+    const currentFilledInCellsCount = 7;
     const remainingCellsCount =
       this.getSuggestedTargetsHeaders().length - currentFilledInCellsCount;
     const points = googleAdsClient.getPoints(simulation);

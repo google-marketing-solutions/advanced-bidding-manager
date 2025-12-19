@@ -839,26 +839,28 @@ var SuggestedTargetsLabelsIndex;
     SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["BIDDING_STRATEGY_NAME"] = 1] = "BIDDING_STRATEGY_NAME";
     SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["BIDDING_STRATEGY_TYPE"] = 2] = "BIDDING_STRATEGY_TYPE";
     SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_TARGET"] = 3] = "CURRENT_TARGET";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_TARGET"] = 4] = "SUGGESTED_TARGET";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_TARGET"] = 5] = "OPTIMAL_TARGET";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_PROFIT"] = 6] = "CURRENT_PROFIT";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_PROFIT"] = 7] = "SUGGESTED_PROFIT";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_PROFIT"] = 8] = "OPTIMAL_PROFIT";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_COST"] = 9] = "CURRENT_COST";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_COST"] = 10] = "SUGGESTED_COST";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_COST"] = 11] = "OPTIMAL_COST";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSION_VALUE"] = 12] = "CURRENT_CONVERSION_VALUE";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSION_VALUE"] = 13] = "SUGGESTED_CONVERSION_VALUE";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSION_VALUE"] = 14] = "OPTIMAL_CONVERSION_VALUE";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CLICKS"] = 15] = "CURRENT_CLICKS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CLICKS"] = 16] = "SUGGESTED_CLICKS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CLICKS"] = 17] = "OPTIMAL_CLICKS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_IMPRESSIONS"] = 18] = "CURRENT_IMPRESSIONS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_IMPRESSIONS"] = 19] = "SUGGESTED_IMPRESSIONS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_IMPRESSIONS"] = 20] = "OPTIMAL_IMPRESSIONS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSIONS"] = 21] = "CURRENT_CONVERSIONS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSIONS"] = 22] = "SUGGESTED_CONVERSIONS";
-    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSIONS"] = 23] = "OPTIMAL_CONVERSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SIMULATIONS_START_DATE"] = 4] = "SIMULATIONS_START_DATE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SIMULATIONS_END_DATE"] = 5] = "SIMULATIONS_END_DATE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_TARGET"] = 6] = "SUGGESTED_TARGET";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_TARGET"] = 7] = "OPTIMAL_TARGET";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_PROFIT"] = 8] = "CURRENT_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_PROFIT"] = 9] = "SUGGESTED_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_PROFIT"] = 10] = "OPTIMAL_PROFIT";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_COST"] = 11] = "CURRENT_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_COST"] = 12] = "SUGGESTED_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_COST"] = 13] = "OPTIMAL_COST";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSION_VALUE"] = 14] = "CURRENT_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSION_VALUE"] = 15] = "SUGGESTED_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSION_VALUE"] = 16] = "OPTIMAL_CONVERSION_VALUE";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CLICKS"] = 17] = "CURRENT_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CLICKS"] = 18] = "SUGGESTED_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CLICKS"] = 19] = "OPTIMAL_CLICKS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_IMPRESSIONS"] = 20] = "CURRENT_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_IMPRESSIONS"] = 21] = "SUGGESTED_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_IMPRESSIONS"] = 22] = "OPTIMAL_IMPRESSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["CURRENT_CONVERSIONS"] = 23] = "CURRENT_CONVERSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["SUGGESTED_CONVERSIONS"] = 24] = "SUGGESTED_CONVERSIONS";
+    SuggestedTargetsLabelsIndex[SuggestedTargetsLabelsIndex["OPTIMAL_CONVERSIONS"] = 25] = "OPTIMAL_CONVERSIONS";
 })(SuggestedTargetsLabelsIndex || (SuggestedTargetsLabelsIndex = {}));
 class SuggestedTargetsSheet {
     constructor(spreadsheetService) {
@@ -875,6 +877,10 @@ class SuggestedTargetsSheet {
             'Bidding Strategy Name';
         headers[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] =
             'Bidding Strategy Type';
+        headers[SuggestedTargetsLabelsIndex.SIMULATIONS_START_DATE] =
+            'Simulation Start Date';
+        headers[SuggestedTargetsLabelsIndex.SIMULATIONS_END_DATE] =
+            'Simulation End Date';
         headers[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = 'Current Target';
         headers[SuggestedTargetsLabelsIndex.SUGGESTED_TARGET] = 'Suggested Target';
         headers[SuggestedTargetsLabelsIndex.OPTIMAL_TARGET] = 'Optimal Target';
@@ -957,9 +963,11 @@ class SuggestedTargetsSheet {
         row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_NAME] = entity.name;
         const simType = simulation.type;
         row[SuggestedTargetsLabelsIndex.BIDDING_STRATEGY_TYPE] = simType;
+        row[SuggestedTargetsLabelsIndex.SIMULATIONS_START_DATE] = simulation.startDate;
+        row[SuggestedTargetsLabelsIndex.SIMULATIONS_END_DATE] = simulation.endDate;
         const currentTarget = googleAdsClient.getEntityTarget(simType, entity) ?? 0;
         row[SuggestedTargetsLabelsIndex.CURRENT_TARGET] = currentTarget ?? '';
-        const currentFilledInCellsCount = 5;
+        const currentFilledInCellsCount = 7;
         const remainingCellsCount = this.getSuggestedTargetsHeaders().length - currentFilledInCellsCount;
         const points = googleAdsClient.getPoints(simulation);
         if (!points) {
